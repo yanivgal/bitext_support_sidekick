@@ -12,6 +12,8 @@ from system_prompts import get_system_prompt
 from chat_service import ChatService
 from scope_checker.checker import Checker
 from scope_checker.scope import ScopeEnum
+from thinking.reactive import Reactive
+from thinking.plan import Plan
 
 class Agent:
 
@@ -29,6 +31,7 @@ class Agent:
         self._system_prompt = get_system_prompt(self._mode, self._capabilities)
         self._llm = ChatService(model)
         self._scope = Checker(model)
+        self._brain = Reactive(self._llm) if mode == "reactive" else Plan(self._llm)
 
     def ask(
         self,
@@ -68,315 +71,19 @@ class Agent:
             print("---</THINKING>---")
             return out_of_scope_response, history
         
-        if self._mode == "reactive":
-            answer, tool_msgs = self._reactive_cycle(history)
-            history.extend(tool_msgs)
-            history.append(m(
-                role="assistant",
-                content=answer["content"],
-                reasoning=answer["reasoning"],
-                message_type=MessageType.USER_FACING
-            ))
-            return answer, history
-
-        if self._mode == "plan":
-            answer, intermediate = self._plan_then_execute(history)
-            history.extend(intermediate)
-            history.append(m(
-                role="assistant",
-                content=answer["content"],
-                reasoning=answer["reasoning"],
-                message_type=MessageType.USER_FACING
-            ))
-            return answer, history
-
-        raise ValueError("mode must be 'reactive' or 'plan'")
-
-
-    def _get_final_response(self, messages: List[Dict[str, str]]) -> Tuple[Dict[str, str], List[Dict[str, str]]]:
-        
-        resp = self._llm.chat(
-            messages,
-            tools_json=None,
-            response_format=FinalResponse
-        )
-        final_response = resp.choices[0].message.parsed
-        answer = {
-            "content": final_response.content,
-            "reasoning": final_response.reasoning
-        }
-        print(f"\n{answer['reasoning']}")
-        return answer, []
-
-    def _reactive_cycle(self, messages):
-        working = messages.copy()
-        new_msgs: List[Dict[str, str]] = []
-
-        while True:
-            thinking_step = self._think_next_step(working)
-            thinking_msg = m(
-                role="assistant",
-                content=thinking_step.next_step,
-                reasoning=thinking_step.reasoning,
-                message_type=MessageType.THINKING
-            )
-            working.append(thinking_msg)
-            new_msgs.append(thinking_msg)
-
-            print(f"\n{thinking_msg['reasoning']}")
-            print(f"My next step should be: {thinking_msg['content']}")
-
-            if not thinking_step.use_tool:
-                answer, _ = self._get_final_response(working)
-                print("---</THINKING>---\n")
-                return answer, new_msgs
-
-            # Now get the tool calls - request only one tool
-            resp = self._llm.chat(
-                working, 
-                tools_json=TOOLS_SCHEMA
-            )
-            msg = resp.choices[0].message
-
-            if msg.tool_calls:
-                working, new_msgs = self._handle_tool_calls(msg, working, new_msgs)
-                continue
-
-            # no tool calls → final answer
-            answer, _ = self._get_final_response(working)
-            print("---</THINKING>---\n")
-            return answer, new_msgs
-
-    def _handle_tool_calls(
-        self, 
-        msg, 
-        working: List[Dict[str, str]], 
-        new_msgs: List[Dict[str, str]]
-    ) -> Tuple[List[Dict[str, str]], List[Dict[str, str]]]:
-        assistant_msg = m(
-            role="assistant",
-            content=msg.content.strip() if msg.content else "Taking actions to gather the required information...",
-            reasoning=msg.content.strip() if msg.content else "Taking actions to gather the required information...",
-            message_type=MessageType.TOOL_CALL,
-            tool_calls=[
-                {
-                    "id": tc.id,
-                    "type": "function",
-                    "function": {
-                        "name": tc.function.name,
-                        "arguments": tc.function.arguments,
-                    },
-                }
-                for tc in msg.tool_calls
-            ]
-        )
-        working.append(assistant_msg)
-        new_msgs.append(assistant_msg)
-        
-        print(f"\n🔧 {assistant_msg['reasoning']}\n")
-
-        # run each tool, append its reply
-        for tc in msg.tool_calls:
-            name = tc.function.name
-            args = json.loads(tc.function.arguments or "{}")
-            print(f"   🛠️  Executing tool: {name} with args: {args}")
-            result = self._execute_tool(name, args)
-
-            tool_msg = m(
-                role="tool",
-                content=json.dumps(result, ensure_ascii=False),
-                message_type=MessageType.TOOL_RESULT,
-                tool_call_id=tc.id
-            )
-            working.append(tool_msg)
-            new_msgs.append(tool_msg)
-            
-            # Print tool execution
-            result = json.loads(tool_msg['content'])
-            if isinstance(result, list):
-                print(f"   ✅ {name} returned {len(result)} items")
-            elif isinstance(result, dict):
-                if 'count' in result:
-                    print(f"   ✅ {name} found {result['count']} matches")
-                else:
-                    print(f"   ✅ {name} returned {len(result)} key-value pairs")
-            else:
-                print(f"   ✅ {name} execution completed")
-
-        return working, new_msgs
-
-
-    def _plan_then_execute(self, messages):
-        plan = self._plan_thinking(messages)
-        
-        working = messages.copy()
-        new_msgs = []
-        
-        plan_msg = m(
-            role="assistant",
-            content=f"{plan.goal}\n\nSteps:\n" + "\n".join(
-                f"{i+1}. {step.action}\n   Expected: {step.expected_result}\n   Reasoning: {step.reasoning}" + 
-                (f"\n   Depends on: {[d + 1 for d in step.depends_on]}" if step.depends_on else "")
-                for i, step in enumerate(plan.steps)
-            ),
-            reasoning=f"Planning to achieve: {plan.goal}",
-            message_type=MessageType.THINKING
-        )
-        working.append(plan_msg)
-        new_msgs.append(plan_msg)
-        
-        print(f"\n📋 The Plan:\n{plan.goal}")
-        for i, step in enumerate(plan.steps):
-            print(f"   Step {i+1}:")
-            print(f"      Action: {step.action}")
-            print(f"      Expected: {step.expected_result}")
-            print(f"      Reasoning: {step.reasoning}")
-            if step.depends_on:
-                print(f"      Depends on: {[d + 1 for d in step.depends_on]}")
-        
-        print("\nExecuting the plan...")
-        
-        for i, step in enumerate(plan.steps):
-            step_msg = m(
-                role="assistant",
-                content=step.action,
-                reasoning=step.reasoning,
-                message_type=MessageType.THINKING
-            )
-            working.append(step_msg)
-            new_msgs.append(step_msg)
-            
-            print(f"\n📝 Step {i+1}: {step.reasoning}")
-            
-            if "tool" in step.action.lower():
-                resp = self._llm.chat(working, tools_json=TOOLS_SCHEMA)
-                msg = resp.choices[0].message
-                
-                if msg.tool_calls:
-                    working, new_msgs = self._handle_tool_calls(msg, working, new_msgs)
-        
-        answer, _ = self._get_final_response(working)
+        answer, tool_msgs = self._brain.think(history)
         print("---</THINKING>---\n")
+        history.extend(tool_msgs)
+        history.append(m(
+            role="assistant",
+            content=answer["content"],
+            reasoning=answer["reasoning"],
+            message_type=MessageType.USER_FACING
+        ))
         
-        return {
-            "content": answer["content"],
-            "reasoning": answer["reasoning"]
-        }, new_msgs
+        return answer, history
 
 
     def _discover_capabilities(self):
-        
-        # categories = self._execute_tool("get_categories", {})
-        dataset_info = self._execute_tool("dataset_info", {})
-        
-        return dataset_info
-    
-
-    def _think_next_step(self, messages: list[dict]) -> ReactiveThinkingStep:
-
-        # Convert the first system message to user message if it exists
-        modified_messages = messages.copy()
-        if modified_messages and modified_messages[0]["role"] == "system":
-            modified_messages[0] = {
-                "role": "user",
-                "content": modified_messages[0]["content"]
-            }
-
-        # Add new system message at the beginning
-        modified_messages.insert(0, {
-            "role": "system",
-            "content": (
-                "You are thinking out loud before deciding whether to use a tool. "
-                "You will be given a conversation history between a user and an assistant. "
-                "Your goal is to analyze this conversation and determine what single next action will best move toward fully answering the user's request.\n\n"
-                "First, review the conversation history to understand:\n"
-                "- What is the user's original request?\n"
-                "- What information has already been gathered?\n"
-                "- What progress has been made so far?\n\n"
-                "Then assess whether the user's original request has already been completely satisfied. "
-                "If not, think about what specific piece of information is still missing.\n\n"
-                "Finally, decide:\n"
-                "- Should you call a tool to get that missing information?\n"
-                "- Or do you already have everything needed and should just proceed to respond?\n\n"
-                "IMPORTANT GUIDELINES:\n"
-                "1. If you have all the information needed, set use_tool=False and provide a clear next_step that summarizes what you will say in your final response.\n"
-                "2. If you need multiple pieces of information, prefer to gather them one at a time. This helps maintain clarity and makes it easier to track progress.\n"
-                "Respond using the fields:\n"
-                "- 'use_tool': true if a tool is needed, false otherwise\n"
-                "- 'reasoning': a short explanation of your decision, referencing the conversation history\n"
-                "- 'next_step': a one-sentence description of the next action"
-            )
-        })
-
-        response = self._llm.chat(
-            modified_messages,
-            tools_json=None,
-            response_format=ReactiveThinkingStep,
-        )
-        return response.choices[0].message.parsed
-    
-    def _plan_thinking(self, messages: list[dict]) -> PlanningThinking:
-        
-        response = self._llm.chat(
-            messages + [{
-                "role": "system",
-                "content": (
-                    "Create a structured plan to answer the user's question. "
-                    "Break down the work into clear steps, considering dependencies between steps. "
-                    "For each step, specify what needs to be done and what we expect to get from it."
-                )
-            }],
-            tools_json=None,
-            response_format=PlanningThinking
-        )
-        return response.choices[0].message.parsed
-
-
-
-
-    
-
-    def _normalize_category(self, category: str) -> str:
-        """Normalize category name to match dataset format."""
-        if not category:
-            return category
-        return category.upper()
-
-    def _execute_tool(self, name: str, args: Dict[str, Any]):
-        """Execute a tool with the given arguments.
-        
-        Args:
-            name: Name of the tool to execute
-            args: Dictionary of arguments for the tool
-            
-        Returns:
-            The result of the tool execution
-        """
-        # Get the tool function and schema
-        func, schema = _TOOL_FUNCS[name]
-        
-        # Check for required parameters
-        required_params = schema["parameters"].get("required", [])
-        missing_params = [param for param in required_params if param not in args]
-        
-        if missing_params:
-            return {
-                "error": f"Missing required parameters: {', '.join(missing_params)}",
-                "required_parameters": required_params,
-                "provided_parameters": list(args.keys())
-            }
-            
-        # Normalize category name if present in args
-        if "category" in args:
-            args["category"] = self._normalize_category(args["category"])
-            
-        # Execute the tool
-        try:
-            return func(**args)
-        except Exception as e:
-            return {
-                "error": str(e),
-                "tool": name,
-                "args": args
-            }
-    
+        func, _ = _TOOL_FUNCS["dataset_info"]
+        return func()
