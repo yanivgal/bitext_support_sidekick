@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Dict, List, Tuple
 
-from chat_service import ChatService
-from message_models.message import MessageType, m
+from chat.service import Service as ChatService
+from chat.message import MessageType, m
 from scope_checker.checker import Checker
 from scope_checker.scope import ScopeEnum
 from brain.plan import Plan
@@ -34,35 +34,30 @@ class Agent:
         
         print("---<THINKING>---")
 
-        history = chat_history[:] if chat_history else [m(role="system", content=self._brain.get_system_prompt(), message_type=MessageType.SYSTEM)]
-        history.append(m(role="user", content=user_message, message_type=MessageType.USER_FACING))
+        history = self._initialize_history(user_message, chat_history)
         
         scope_check = self._scope.check(user_message, history)
-        print(f"Checking if the question is in scope: {'In scope' if scope_check.scope == ScopeEnum.IN_SCOPE else 'Out of scope'}")
+        print(f"Checking if the question is in scope: {scope_check.scope.value}")
         print(f"   {scope_check.reasoning}")
 
         history.append(m(
             role="assistant",
-            content=f"🔍 Scope Check: {'In scope' if scope_check.scope == ScopeEnum.IN_SCOPE else 'Out of scope'}",
+            content=f"🔍 Scope Check: {scope_check.scope.value}",
             reasoning=scope_check.reasoning,
             message_type=MessageType.THINKING
         ))
 
         if scope_check.scope == ScopeEnum.OUT_OF_SCOPE:
-            out_of_scope_response = {
-                "content": "I apologize, but I can only answer questions about the Bitext Customer Support Service dataset. Your question appears to be about something else.",
-                "reasoning": scope_check.reasoning
-            }
             scope_msg = m(
                 role="assistant", 
-                content=out_of_scope_response["content"], 
-                reasoning=out_of_scope_response["reasoning"],
+                reasoning=scope_check.reasoning,
+                content="I apologize, but I can only answer questions about the Bitext Customer Support Service dataset. Your question appears to be about something else.", 
                 message_type=MessageType.USER_FACING
             )
             history.append(scope_msg)
 
             print("---</THINKING>---")
-            return out_of_scope_response, history
+            return scope_msg, history
         
         answer, tool_msgs = self._brain.think(history)
 
@@ -77,3 +72,19 @@ class Agent:
         print("---</THINKING>---\n")
         
         return answer, history
+
+    def _initialize_history(
+        self,
+        user_message: str,
+        chat_history: List[Dict[str, str]] | None = None,
+    ) -> List[Dict[str, str]]:
+        if chat_history:
+            history = chat_history[:]
+        else:
+            history = [m(
+                role="system",
+                content=self._brain.get_system_prompt(),
+                message_type=MessageType.SYSTEM
+            )]
+        history.append(m(role="user", content=user_message, message_type=MessageType.USER_FACING))
+        return history

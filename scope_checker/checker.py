@@ -1,6 +1,6 @@
-from chat_service import ChatService
+from chat.service import Service as ChatService
 from typing import List, Dict
-from message_models.message import MessageType
+from chat.message import MessageType
 from .scope import ScopeCheck
 
 _system_prompt = (

@@ -1,6 +1,6 @@
 import streamlit as st
 from agent import Agent
-from message_models.message import MessageType, Message
+from chat.message import MessageType, Message
 
 from dotenv import load_dotenv
 

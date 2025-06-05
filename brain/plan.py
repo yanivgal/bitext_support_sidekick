@@ -1,7 +1,7 @@
 from typing import List, Dict, Tuple
 from .strategy import Strategy
 from .planning_thinking import PlanningThinking
-from message_models.message import MessageType, m
+from chat.message import MessageType, m
 from tools.tools import TOOLS_SCHEMA
 from .planning_thinking import _system_prompt as _thinking_system_prompt
 

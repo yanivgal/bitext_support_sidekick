@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from message_models.message import MessageType
+from chat.message import MessageType
 
 _system_prompt = (
     "You are thinking out loud before deciding whether to use a tool. "

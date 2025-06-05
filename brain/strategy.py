@@ -1,10 +1,10 @@
 from abc import abstractmethod
 from typing import Any,List, Dict, Tuple
-from chat_service import ChatService
+from chat.service import Service as ChatService
 from .final_response import FinalResponse
 import json
-from message_models.message import Message, MessageType, m
-from tools.tools import _TOOL_FUNCS, TOOLS_SCHEMA
+from chat.message import MessageType, m
+from tools.tools import _TOOL_FUNCS
 
 class Strategy:
 
