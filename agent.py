@@ -1,34 +1,27 @@
 from __future__ import annotations
 
-import json
-from typing import Any, Dict, List, Tuple
+from typing import Dict, List, Tuple
 
-from tools.tools import _TOOL_FUNCS, TOOLS_SCHEMA
-from message_models.reactive_thinking_step import ReactiveThinkingStep
-from message_models.final_response import FinalResponse
-from message_models.message import Message, MessageType, m
-from message_models.planning_thinking import PlanningThinking, PlanningStep
-from system_prompts import get_system_prompt
 from chat_service import ChatService
+from message_models.message import MessageType, m
 from scope_checker.checker import Checker
 from scope_checker.scope import ScopeEnum
-from thinking.reactive import Reactive
-from thinking.plan import Plan
+from brain.plan import Plan
+from brain.reactive import Reactive
+
 
 class Agent:
 
     def __init__(
         self,
-        model: str = "gpt-4o-mini",  # replace with Qwen2.5-32B if desired
-        mode: str = "reactive",  # Add mode parameter
+        model: str = "gpt-4o-mini",
+        mode: str = "reactive",
     ):
         if mode not in ["reactive", "plan"]:
             raise ValueError("mode must be 'reactive' or 'plan'")
         
         self._mode = mode
         self._model = model
-        self._capabilities = self._discover_capabilities()
-        self._system_prompt = get_system_prompt(self._mode, self._capabilities)
         self._llm = ChatService(model)
         self._scope = Checker(model)
         self._brain = Reactive(self._llm) if mode == "reactive" else Plan(self._llm)
@@ -41,7 +34,7 @@ class Agent:
         
         print("---<THINKING>---")
 
-        history = chat_history[:] if chat_history else [m(role="system", content=self._system_prompt, message_type=MessageType.SYSTEM)]
+        history = chat_history[:] if chat_history else [m(role="system", content=self._brain.get_system_prompt(), message_type=MessageType.SYSTEM)]
         history.append(m(role="user", content=user_message, message_type=MessageType.USER_FACING))
         
         scope_check = self._scope.check(user_message, history)
@@ -72,7 +65,7 @@ class Agent:
             return out_of_scope_response, history
         
         answer, tool_msgs = self._brain.think(history)
-        print("---</THINKING>---\n")
+
         history.extend(tool_msgs)
         history.append(m(
             role="assistant",
@@ -80,10 +73,7 @@ class Agent:
             reasoning=answer["reasoning"],
             message_type=MessageType.USER_FACING
         ))
+
+        print("---</THINKING>---\n")
         
         return answer, history
-
-
-    def _discover_capabilities(self):
-        func, _ = _TOOL_FUNCS["dataset_info"]
-        return func()
