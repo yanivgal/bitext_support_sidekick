@@ -42,6 +42,20 @@ The application follows a modular architecture:
   - `dataset_info.py` – dataset metadata
   - `calculator.py` – numerical calculations
 
+## System Diagrams
+
+Below are four simple images that explain how the app works:
+
+- **System flowchat** – all main pieces and how they connect.
+- **Sequence diagram** – steps from a question to the answer.
+- **Mind map** – big picture in a tree view.
+- **User journey** – what the user does and what happens behind the scenes.
+
+![](assets/1_system_flowchat.png)
+![](assets/2_sequence_diagram.png)
+![](assets/3_mindmap.png)
+![](assets/4_user_journey.png)
+
 ## Getting Started
 
 1. Install dependencies:
