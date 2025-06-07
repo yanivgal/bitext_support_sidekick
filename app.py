@@ -1,17 +1,40 @@
 import streamlit as st
 from agent import Agent
 from chat.message import MessageType, Message
+import time
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
 
-def display_thinking_messages(messages):
+def _format_duration(seconds: float) -> str:
+    """Return a human friendly duration string."""
+    seconds = int(seconds)
+    minutes, seconds = divmod(seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+    parts = []
+    if hours:
+        parts.append(f"{hours} hour{'s' if hours != 1 else ''}")
+    if minutes:
+        parts.append(f"{minutes} minute{'s' if minutes != 1 else ''}")
+    if seconds or not parts:
+        parts.append(f"{seconds} second{'s' if seconds != 1 else ''}")
+    return " and ".join(parts)
+
+
+def display_thinking_messages(messages, duration: float | None = None):
     """Display a group of thinking messages in a single collapsible section."""
     if not messages:
         return
-    with st.expander("Thinking...  🤔"):
+
+    if duration is not None:
+        time_str = _format_duration(duration)
+        label = f"🤔 Thought for {time_str}"
+    else:
+        label = "Thinking...  🤔"
+
+    with st.expander(label):
         
         # First pass: collect all tool calls and their indices
         tool_calls = []
@@ -90,14 +113,18 @@ def main():
         st.session_state.chat_turns.append({
             "user": user_message,
             "thinking": [],
-            "assistant": None
+            "assistant": None,
+            "duration": None
         })
         new_question = True
     
     # Display chat history as grouped turns
     for turn in st.session_state.chat_turns:
         display_message(turn["user"])
-        display_thinking_messages(turn.get("thinking", []))
+        display_thinking_messages(
+            turn.get("thinking", []),
+            turn.get("duration")
+        )
         if turn["assistant"]:
             display_message(turn["assistant"])
     
@@ -106,7 +133,9 @@ def main():
         with st.spinner('The agent is deep in thoughts... and possibly snacking. Hang tight!'):
             # Get agent's response (returns full updated history)
             all_prev_msgs = [msg for turn in st.session_state.chat_turns[:-1] for msg in [turn["user"]] + turn.get("thinking", []) + ([turn["assistant"]] if turn["assistant"] else [])]
+            start_time = time.monotonic()
             response, updated_history = st.session_state.agent.ask(prompt, all_prev_msgs)
+            duration = time.monotonic() - start_time
             # Extract new thinking messages and assistant answer
             user_indices = [i for i, msg in enumerate(updated_history) if msg["role"] == "user"]
             last_user_idx = user_indices[-1] if user_indices else 0
@@ -115,6 +144,7 @@ def main():
             # Update the last turn
             st.session_state.chat_turns[-1]["thinking"] = thinking_msgs
             st.session_state.chat_turns[-1]["assistant"] = assistant_msg
+            st.session_state.chat_turns[-1]["duration"] = duration
             st.rerun()
 
 if __name__ == "__main__":
