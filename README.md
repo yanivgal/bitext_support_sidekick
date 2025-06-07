@@ -1,6 +1,6 @@
 # Bitext Support Sidekick 🤖
 
-A Streamlit-based chat application that helps users analyze and understand the Bitext Customer Service Tagged Training dataset through natural language interactions.
+A Streamlit-based chat application that helps users analyze and understand the Bitext Customer Service Tagged Training dataset through natural language interactions. The dataset is automatically downloaded from HuggingFace on first run and cached locally.
 
 ## Overview
 
@@ -10,8 +10,8 @@ This project implements an intelligent agent that can answer questions about cus
 
 - 🤖 Interactive chat interface built with Streamlit
 - 🔄 Two agent modes:
-  - Reactive: Step-by-step thinking and execution
-  - Plan: Creates a structured plan before execution
+  - **Reactive** – step-by-step thinking and execution
+  - **Plan** – creates a structured plan before execution
 - 📊 Data analysis capabilities:
   - Category analysis and distribution
   - Intent analysis
@@ -19,6 +19,7 @@ This project implements an intelligent agent that can answer questions about cus
   - Exact search
   - Data aggregation
   - Common questions identification
+- 🚦 Automatic scope checking to filter out-of-topic questions
 - 💡 Transparent reasoning with expandable thinking steps
 - 🛠️ Tool-based architecture for modular functionality
 
@@ -26,16 +27,20 @@ This project implements an intelligent agent that can answer questions about cus
 
 The application follows a modular architecture:
 
-- `app.py`: Main Streamlit application handling UI and chat flow
-- `agent.py`: Core agent implementation with two modes of operation
-- `tools/`: Collection of specialized tools for data analysis:
-  - `data_slicer.py`: Data filtering and slicing
-  - `find_common_questions.py`: Common question analysis
-  - `aggregator.py`: Data aggregation functions
-  - `exact_search.py`: Exact text search
-  - `semantic_search.py`: Semantic search capabilities
-  - `dataset_info.py`: Dataset metadata and information
-  - `calculator.py`: Mathematical operations
+- `app.py` – Streamlit UI and chat flow
+- `agent.py` – orchestrates the conversation, scope checking and reasoning
+- `brain/` – planning and reactive strategies
+- `chat/` – message models and wrapper around the OpenAI API
+- `bitext/datastore.py` – loads the dataset and builds the search index
+- `scope_checker/` – verifies if a question is in scope
+- `tools/` – data analysis tools:
+  - `data_slicer.py` – filter/group/sort the data
+  - `find_common_questions.py` – discover frequent question patterns
+  - `aggregator.py` – aggregation functions
+  - `exact_search.py` – literal text search
+  - `semantic_search.py` – embedding based search
+  - `dataset_info.py` – dataset metadata
+  - `calculator.py` – numerical calculations
 
 ## Getting Started
 
@@ -57,8 +62,9 @@ streamlit run app.py
 
 ## Requirements
 
-- Python 3.10 or higher is required for this project
-- The project uses type hints and modern Python features that are not available in earlier versions
+- Python 3.10 or higher is required for this project. The code relies on
+  [PEP&nbsp;604](https://peps.python.org/pep-0604/) union types (e.g. `list | None`),
+  which are not available in earlier Python versions.
 - We recommend using a virtual environment to manage dependencies
 
 ## Usage
@@ -78,10 +84,14 @@ streamlit run app.py
 
 ```
 .
-├── app.py                 # Main Streamlit application
-├── agent.py              # Core agent implementation
-├── system_prompts.py     # System prompts for different modes
-├── tools/                # Data analysis tools
+├── app.py              # Streamlit entry point
+├── agent.py            # Conversation orchestration
+├── brain/              # Planning and reactive logic
+├── chat/               # Message models and OpenAI wrapper
+├── bitext/
+│   └── datastore.py    # Dataset loader and embedding index
+├── scope_checker/      # Out-of-scope detection
+├── tools/              # Data analysis tools
 │   ├── data_slicer.py
 │   ├── find_common_questions.py
 │   ├── aggregator.py
@@ -89,9 +99,8 @@ streamlit run app.py
 │   ├── semantic_search.py
 │   ├── dataset_info.py
 │   └── calculator.py
-├── message_models/       # Message type definitions
-├── notebooks/           # Jupyter notebooks for development
-└── requirements.txt     # Project dependencies
+├── notebooks/          # Development notebooks
+└── requirements.txt    # Project dependencies
 ```
 
 ## Contributing
