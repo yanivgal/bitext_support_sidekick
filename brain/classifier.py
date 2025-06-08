@@ -1,0 +1,77 @@
+from typing import Dict, Any
+from pydantic import BaseModel, Field
+from chat.service import Service as ChatService
+from chat.message import MessageType
+from scope_checker.checker import Checker
+
+# LLM-based classifier system prompt for structured/unstructured
+_classifier_prompt = (
+    "You are a query classifier for the Bitext Customer Support Service dataset.\n"
+    "Classify the user's query as one of the following types:\n"
+    "- structured: Direct, specific requests for data (e.g., counts, lists, examples, exact matches, statistics).\n"
+    "- unstructured: Requests for summaries, analysis, explanations, or pattern discovery (e.g., summarize, analyze, explain, find common patterns, generate FAQ).\n"
+    "- recommend_query: Requests for advice, suggestions, or recommendations about what to ask next.\n"
+    "\n"
+    "Instructions:\n"
+    "- If the query is about general dataset info, categories, intents, or direct data retrieval, classify as 'structured'.\n"
+    "- If the query is about summarizing, analyzing, or discovering patterns, classify as 'unstructured'.\n"
+    "- If the query is about what to ask next, or asks for advice, suggestions, or recommendations, classify as 'recommend_query'.\n"
+    "\n"
+    "Examples:\n"
+    "- 'What are the most frequent categories?' → structured\n"
+    "- 'Show examples of Category X' → structured\n"
+    "- 'Summarize the ACCOUNT category' → unstructured\n"
+    "- 'Analyze common patterns in customer questions' → unstructured\n"
+    "- 'Advise me what to query next' → recommend_query\n"
+    "- 'What should I ask now?' → recommend_query\n"
+    "- 'Suggest a good next question' → recommend_query\n"
+    "\n"
+    "Respond only with a JSON object with two fields: 'query_type' (structured, unstructured, or recommend_query) and 'reasoning' (a short explanation for your classification)."
+)
+
+class QueryClassification(BaseModel):
+    query_type: str = Field(..., description="structured, unstructured, or recommend_query")
+    reasoning: str = Field(..., description="Short explanation for the classification")
+
+_llm = ChatService("gpt-4o-mini")
+_scope_checker = Checker(model="gpt-4o-mini")
+
+def classify_query_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    First use the old scope checker. If in-scope, use the LLM to classify as structured/unstructured/recommend_query. If out-of-scope, return immediately.
+    """
+    user_message = state["user_message"]
+    chat_history = state.get("messages", [])
+
+    print(f"🔍 Scope checking query: {user_message}")
+    scope_result = _scope_checker.check(user_message, chat_history)
+    print(f"   Scope check result: {scope_result.scope.value}")
+    print(f"   Scope reasoning: {scope_result.reasoning}")
+
+    if scope_result.scope.value.lower() == "out of scope":
+        print("   → Classified as OUT OF SCOPE by scope checker")
+        return {
+            **state,
+            "query_type": "out_of_scope",
+            "current_step": "classified_query_out_of_scope",
+            "scope_reasoning": scope_result.reasoning
+        }
+
+    # If in-scope, use LLM to classify as structured/unstructured/recommend_query
+    print(f"🔍 LLM Classifying in-scope query: {user_message}")
+    messages = [
+        {"role": "system", "content": _classifier_prompt},
+        {"role": "user", "content": user_message}
+    ]
+    response = _llm.chat(messages, response_format=QueryClassification)
+    classification = response.choices[0].message.parsed
+    print(f"   LLM classified as: {classification.query_type}")
+    print(f"   Reasoning: {classification.reasoning}")
+
+    return {
+        **state,
+        "query_type": classification.query_type,
+        "current_step": f"classified_query_{classification.query_type}",
+        "scope_reasoning": scope_result.reasoning,
+        "classification_reasoning": classification.reasoning
+    } 

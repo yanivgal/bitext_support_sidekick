@@ -23,20 +23,17 @@ class Message(BaseModel):
         }
     }
 
-def m(
-    role: str,
-    content: str,
-    message_type: MessageType,
-    reasoning: str | None = None,
-    tool_calls: List[Dict] | None = None,
-    tool_call_id: str | None = None
-) -> Dict:
-    """Create a Message object with the given parameters and convert it to a dictionary."""
-    return Message(
-        role=role,
-        content=content,
-        message_type=message_type,
-        reasoning=reasoning,
-        tool_calls=tool_calls,
-        tool_call_id=tool_call_id
-    ).model_dump()
+def m(role, content, message_type, reasoning=None, tool_calls=None, tool_call_id=None, **kwargs):
+    msg = {
+        "role": role,
+        "content": content,
+        "message_type": message_type,
+    }
+    if reasoning is not None:
+        msg["reasoning"] = reasoning
+    if tool_calls is not None:
+        msg["tool_calls"] = tool_calls
+    if tool_call_id is not None:
+        msg["tool_call_id"] = tool_call_id
+    msg.update(kwargs)  # Allow extra fields like 'suggestions'
+    return msg

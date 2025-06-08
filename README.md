@@ -1,17 +1,19 @@
-# Bitext Support Sidekick 🤖
-
-A Streamlit-based chat application that helps users analyze and understand the Bitext Customer Service Tagged Training dataset through natural language interactions. The dataset is automatically downloaded from HuggingFace on first run and cached locally.
+# Bitext Support Sidekick
 
 ## Overview
 
-This project implements an intelligent agent that can answer questions about customer service data through a conversational interface. The agent can handle both structured queries (e.g., "What are the most frequent categories?") and unstructured analysis (e.g., "Summarize Category X").
+This project implements an intelligent agent that can answer questions about customer service data through a conversational interface. The agent uses LangGraph for structured workflow management and can handle both structured queries (e.g., "What are the most frequent categories?") and unstructured analysis (e.g., "Summarize Category X").
 
 ## Features
 
 - 🤖 Interactive chat interface built with Streamlit
-- 🔄 Two agent modes:
-  - **Reactive** – step-by-step thinking and execution
-  - **Plan** – creates a structured plan before execution
+- 🔄 LangGraph-based workflow with specialized nodes:
+  - **Query Classification** – automatically determines query type
+  - **Structured Agent** – handles direct, specific queries
+  - **Unstructured Agent** – handles analysis and summary queries
+  - **Out-of-Scope Handler** – manages off-topic questions
+  - **Summary Node** – updates and stores user memory after each turn
+  - **Next Query Recommender** – suggests relevant next queries based on user profile and conversation
 - 📊 Data analysis capabilities:
   - Category analysis and distribution
   - Intent analysis
@@ -19,104 +21,115 @@ This project implements an intelligent agent that can answer questions about cus
   - Exact search
   - Data aggregation
   - Common questions identification
+  - Calculator
 - 🚦 Automatic scope checking to filter out-of-topic questions
 - 💡 Transparent reasoning with expandable thinking steps
 - 🛠️ Tool-based architecture for modular functionality
+- 🧠 Conversation memory and session management (multi-conversation, persistent)
+- 📝 Summarized user memory (profile, preferences, interests)
+- 🧭 Next Query Recommender (interactive, LLM-powered)
 
-## Architecture
+## Architecture & DDD Structure
 
-The application follows a modular architecture:
+The application follows a modular, domain-driven architecture:
 
-- `app.py` – Streamlit UI and chat flow
-- `agent.py` – orchestrates the conversation, scope checking and reasoning
-- `brain/` – planning and reactive strategies
-- `chat/` – message models and wrapper around the OpenAI API
-- `bitext/datastore.py` – loads the dataset and builds the search index
-- `scope_checker/` – verifies if a question is in scope
-- `tools/` – data analysis tools:
-  - `data_slicer.py` – filter/group/sort the data
-  - `find_common_questions.py` – discover frequent question patterns
-  - `aggregator.py` – aggregation functions
-  - `exact_search.py` – literal text search
-  - `semantic_search.py` – embedding based search
-  - `dataset_info.py` – dataset metadata
-  - `calculator.py` – numerical calculations
-
-## System Diagrams
-
-Below are four simple images that explain how the app works:
-
-- **System flowchat** – all main pieces and how they connect.
-- **Sequence diagram** – steps from a question to the answer.
-- **Mind map** – big picture in a tree view.
-- **User journey** – what the user does and what happens behind the scenes.
-
-![](assets/1_system_flowchat.png)
-![](assets/2_sequence_diagram.png)
-![](assets/3_mindmap.png)
-![](assets/4_user_journey.png)
-
-## Getting Started
-
-1. Install dependencies:
-```bash
-pip install -r requirements.txt
+```
+bitext_support_sidekick/
+│
+├── app.py                  # Streamlit UI (entry point)
+├── agent.py                # Agent orchestrator (LangGraph interface)
+├── user_memory.json        # Human-readable user memory
+│
+├── brain/                  # Domain logic (agent brain, nodes, workflow)
+│   ├── classifier.py       # Query classification node
+│   ├── graph.py            # LangGraph workflow definition
+│   ├── structured_agent.py # Structured query node
+│   ├── unstructured_agent.py # Unstructured query node
+│   ├── out_of_scope.py     # Out-of-scope handler node
+│   ├── summary.py          # Summarized memory node
+│   ├── recommender.py      # Next query recommender node
+│   ├── memory_manager.py   # User memory file I/O
+│   ├── final_response.py   # Final response formatting
+│   ├── ...
+│
+├── chat/                   # Messaging and LLM service abstraction
+│   ├── message.py          # Message model and helpers
+│   ├── service.py          # LLM API wrapper
+│
+├── tools/                  # Data analysis tools (domain-specific)
+│   ├── aggregator.py, calculator.py, ...
+│   ├── tools.py            # Tool registry/schema
+│
+├── scope_checker/          # Scope checking logic
+│   ├── checker.py
+│   ├── scope.py
+│
+├── assets/                 # Diagrams, images
+├── notebooks/              # Jupyter notebooks (for dev/testing)
+├── requirements.txt
+├── README.md
 ```
 
-2. Set up environment variables:
-```bash
-cp .env.example .env
-# Edit .env with your API keys
-```
+- **No technology-leakage:** No folders like `llm/`, `langgraph/`, or `openai/` at the top level.
+- **Domain-driven:** Each folder/module is named for its business role.
 
-3. Run the application:
-```bash
-streamlit run app.py
-```
+## Next Query Recommender (Bonus Feature)
+
+- The agent can proactively suggest relevant next queries based on your user profile and conversation history.
+- Suggestions appear as clickable buttons in the chat UI.
+- You can accept, modify, or ask for more suggestions interactively.
+- Example:
+  - User: "Advise me what to query next"
+  - Agent: [suggests 2–3 queries as buttons]
+  - User: [clicks a suggestion]
+  - Agent: [executes the query and returns the answer]
+
+## Quickstart
+
+1. **Install dependencies:**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   ```
+2. **Set your OpenAI API key:**
+   ```bash
+   export OPENAI_API_KEY=sk-...
+   ```
+3. **Run the app:**
+   ```bash
+   streamlit run app.py
+   ```
+4. **Test features:**
+   - Try structured queries: "What are the most frequent categories?"
+   - Try unstructured queries: "Summarize the ACCOUNT category."
+   - Try follow-up queries: "Show me more examples."
+   - Try memory: "What do you remember about me?"
+   - Try recommendations: "What should I ask next?"
 
 ## Requirements
 
-- Python 3.10 or higher is required for this project. The code relies on
-  [PEP&nbsp;604](https://peps.python.org/pep-0604/) union types (e.g. `list | None`),
-  which are not available in earlier Python versions.
-- We recommend using a virtual environment to manage dependencies
+- Python 3.10 or higher
+- Key dependencies:
+  - LangGraph
+  - LangChain
+  - OpenAI
+  - Streamlit
+  - Pydantic
 
-## Usage
+## Extending the Agent
 
-1. Select your preferred agent mode in the sidebar:
-   - Reactive: For step-by-step thinking and execution
-   - Plan: For structured planning before execution
+- **Add new tools:** Implement a new function in `tools/` and register it in `tools.py`.
+- **Add new agent nodes:** Create a new node in `brain/` and add it to the workflow in `graph.py`.
+- **Customize user memory:** Edit `brain/summary.py` and `brain/memory_manager.py`.
 
-2. Ask questions about the dataset in natural language:
-   - "What are the most frequent categories?"
-   - "Show examples of Category X"
-   - "Summarize how agents respond to Intent Y"
+## Clean Code & DDD Principles
 
-3. View the agent's thinking process by expanding the "Thinking..." sections
+- All code is organized by business domain, not technology.
+- Naming is clear, descriptive, and domain-focused.
+- Each node and major function is documented with a docstring.
+- The user memory file is human-readable and self-explanatory.
 
-## Project Structure
+---
 
-```
-.
-├── app.py              # Streamlit entry point
-├── agent.py            # Conversation orchestration
-├── brain/              # Planning and reactive logic
-├── chat/               # Message models and OpenAI wrapper
-├── bitext/
-│   └── datastore.py    # Dataset loader and embedding index
-├── scope_checker/      # Out-of-scope detection
-├── tools/              # Data analysis tools
-│   ├── data_slicer.py
-│   ├── find_common_questions.py
-│   ├── aggregator.py
-│   ├── exact_search.py
-│   ├── semantic_search.py
-│   ├── dataset_info.py
-│   └── calculator.py
-├── notebooks/          # Development notebooks
-└── requirements.txt    # Project dependencies
-```
-
-## Contributing
-
-Feel free to submit issues and enhancement requests! 
+**You’re ready to submit!** 

@@ -10,3 +10,6 @@ numexpr
 pydantic
 torch==2.1.2
 streamlit==1.27.0
+langgraph
+langchain
+langchain-openai
