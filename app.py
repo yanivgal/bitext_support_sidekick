@@ -1,3 +1,6 @@
+import os
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 import streamlit as st
 from agent import Agent
 from chat.message import MessageType, Message
