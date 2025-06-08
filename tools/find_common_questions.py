@@ -83,7 +83,7 @@ def find_common_questions(filter: Dict[str, Any] | None = None, text_field: str 
             }
         
         # Use clustering to find patterns
-        kmeans = KMeans(n_clusters=n_clusters, random_state=0)
+        kmeans = KMeans(n_clusters=n_clusters, random_state=0, n_init="auto")
         clusters = kmeans.fit_predict(embeddings)
         
         # Analyze each cluster
