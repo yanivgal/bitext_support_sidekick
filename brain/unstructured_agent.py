@@ -114,26 +114,28 @@ def unstructured_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
     thinking_messages = []
     
     try:
-        # Add initial thinking message
+        # Add initial thinking message with better reasoning
         thinking_msg = m(
             role="assistant",
-            content="Analyzing the query to determine the best analysis approach...",
-            reasoning="Starting unstructured query analysis",
+            content="I need to analyze this unstructured query to determine the best analysis approach for providing insights and patterns.",
+            reasoning="Starting unstructured query analysis - this type of query requires deeper analysis tools to discover patterns and provide meaningful insights",
             message_type=MessageType.THINKING
         )
         thinking_messages.append(thinking_msg)
+        print(f"\n{thinking_msg['reasoning']}")
+        print(f"My next step should be: {thinking_msg['content']}")
         
         # Get tool calls from LLM
         resp = _llm.chat(llm_messages, tools_json=TOOLS_SCHEMA)
         msg = resp.choices[0].message
         
         if msg.tool_calls:
-            # Add tool call thinking message
+            # Add tool call thinking message with better reasoning
             tool_names = [tc.function.name for tc in msg.tool_calls]
             tool_call_msg = m(
                 role="assistant",
-                content=f"Selected analysis tools: {', '.join(tool_names)}",
-                reasoning=msg.content or f"LLM selected {len(msg.tool_calls)} analysis tool(s) to answer the query",
+                content=f"I'll use the {', '.join(tool_names)} tool(s) to analyze the data and discover patterns.",
+                reasoning=msg.content or f"Based on the query analysis, I need to use {len(msg.tool_calls)} analysis tool(s) to provide meaningful insights and patterns",
                 message_type=MessageType.TOOL_CALL,
                 tool_calls=[
                     {
@@ -149,7 +151,8 @@ def unstructured_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
             )
             thinking_messages.append(tool_call_msg)
             
-            print(f"🔧 LLM selected analysis tools: {tool_names}")
+            print(f"\n🔧 {tool_call_msg['reasoning']}\n")
+            print(f"🔧 Taking actions to gather the required information...\n")
             
             # Execute tools and collect results
             tool_results = []
@@ -186,14 +189,16 @@ def unstructured_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
                 else:
                     print(f"   ✅ {name} execution completed")
             
-            # Add final thinking message
+            # Add final thinking message with better reasoning
             final_thinking_msg = m(
                 role="assistant",
-                content="Analyzing the tool results to provide comprehensive insights...",
-                reasoning="Synthesizing analysis results into meaningful insights",
+                content="Now I have the analysis results. Let me synthesize these insights and provide a comprehensive summary.",
+                reasoning="I've gathered the analysis data from the tools. Now I need to synthesize these insights into a meaningful summary that answers the user's question with clear patterns and observations.",
                 message_type=MessageType.THINKING
             )
             thinking_messages.append(final_thinking_msg)
+            print(f"\n{final_thinking_msg['reasoning']}")
+            print(f"My next step should be: {final_thinking_msg['content']}")
             
             # Generate final response with tool results
             final_messages = llm_messages + [
@@ -226,8 +231,8 @@ def unstructured_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
             final_resp = _llm.chat(final_messages, response_format=FinalResponse)
             final_response = final_resp.choices[0].message.parsed
             
-            print(f"🔍 Final response generated: {final_response.content[:100]}...")
-            print(f"🔍 Final reasoning: {final_response.reasoning[:100]}...")
+            print(f"🔍 Final response generated: {final_response.content}")
+            print(f"🔍 Final reasoning: {final_response.reasoning}")
             
             response = m(
                 role="assistant",
