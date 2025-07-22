@@ -1,46 +1,71 @@
 {
   "user_id": "default_user",
   "interests": [
+    "customer support service dataset",
+    "query classification",
+    "customer feedback trends",
     "intent distribution",
     "customer service datasets",
-    "query classification",
+    "response effectiveness",
+    "trends over time",
+    "data summarization",
+    "customer query analysis",
+    "customer inquiry trends",
+    "customer interaction patterns",
     "query classification statistics",
+    "customer inquiry analysis",
+    "customer issue identification",
     "data analysis",
-    "customer interaction patterns"
+    "improving customer service efficiency"
   ],
   "query_patterns": [
-    "introduction request",
+    "informal greeting",
     "problem-solving request",
+    "reflective questioning",
+    "solicitation for advice",
     "direct inquiry",
-    "informal greeting"
+    "introduction request",
+    "exploratory questioning",
+    "seeking recommendations"
   ],
   "preferences": {
-    "data_format": "structured",
-    "detail_level": "medium"
+    "data_format": "unstructured",
+    "detail_level": "high"
   },
-  "conversation_count": 8,
-  "last_updated": "2025-07-22T08:11:36.469152",
+  "conversation_count": 13,
+  "last_updated": "2025-07-22T10:08:42.803809",
   "topics_discussed": [
-    "common query patterns",
-    "intent distribution",
-    "customer assistance requests",
-    "timestamp requirement",
-    "category distribution",
-    "data filtering",
-    "customer service improvements",
-    "customer service queries",
-    "statistics on instruction and response lengths",
-    "dataset components",
     "intent frequency counts",
-    "intent frequency",
-    "introduction",
+    "customer inquiries",
+    "timestamp requirement",
+    "customer service queries",
+    "data filtering",
+    "common query patterns",
+    "functions of the assistant",
+    "dataset components",
+    "trends in customer questions",
+    "query type",
+    "trends in customer concerns",
+    "customer inquiry analysis",
+    "statistics on instruction and response lengths",
+    "customer support patterns",
+    "category distribution",
     "user identity",
+    "introduction",
+    "customer pain points",
+    "account dataset size",
+    "customer assistance requests",
+    "data insights",
     "purpose of dataset",
-    "account dataset size"
+    "intent distribution",
+    "intent frequency",
+    "customer service improvements",
+    "common questions",
+    "feedback analysis"
   ],
   "favorite_categories": [],
   "query_types_preferred": {
-    "structured": 5,
-    "unstructured": 2
+    "structured": 6,
+    "unstructured": 6
   }
 }

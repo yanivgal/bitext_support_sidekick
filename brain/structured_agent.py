@@ -117,8 +117,8 @@ def structured_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
         # Add initial thinking message with better reasoning
         thinking_msg = m(
             role="assistant",
-            content="I need to analyze this structured query to determine the best tools to use for precise data retrieval.",
-            reasoning="Starting structured query analysis - this type of query requires specific data access tools for accurate information retrieval",
+            content="I need to understand what specific information you're looking for and find the best way to get it for you.",
+            reasoning="Starting to analyze your question to determine the best approach for retrieving the specific information you need",
             message_type=MessageType.THINKING
         )
         thinking_messages.append(thinking_msg)
@@ -135,7 +135,7 @@ def structured_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
             tool_call_msg = m(
                 role="assistant",
                 content=f"I'll use the {', '.join(tool_names)} tool(s) to gather the specific information needed.",
-                reasoning=msg.content or f"Based on the query analysis, I need to use {len(msg.tool_calls)} tool(s) to retrieve the requested data accurately",
+                reasoning=msg.content or f"Based on your question, I need to gather some specific data to provide you with the information you're looking for",
                 message_type=MessageType.TOOL_CALL,
                 tool_calls=[
                     {
@@ -192,8 +192,8 @@ def structured_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
             # Add final thinking message with better reasoning
             final_thinking_msg = m(
                 role="assistant",
-                content="Now I have all the information needed. Let me process the results and provide a comprehensive answer.",
-                reasoning="I've gathered the required data from the tools. Now I need to synthesize this information into a clear, accurate response that directly answers the user's question.",
+                content="Now I have all the information needed. Let me organize this into a clear, helpful response for you.",
+                reasoning="I've gathered the relevant data. Now I need to put it all together into a comprehensive answer that addresses your question clearly and accurately.",
                 message_type=MessageType.THINKING
             )
             thinking_messages.append(final_thinking_msg)

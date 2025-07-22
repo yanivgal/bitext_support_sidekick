@@ -28,6 +28,22 @@ def _get_unstructured_prompt() -> str:
         "- find_common_questions: For discovering frequent question patterns\n"
         "- aggregator: For complex aggregations and analysis\n"
         "- data_slicer: For filtering and grouping data for analysis\n"
+        "\nSPECIAL HANDLING FOR CAPABILITY QUESTIONS:\n"
+        "If the user asks 'What can you do?' or similar capability questions:\n"
+        "- Explain your capabilities in a conversational, friendly way\n"
+        "- Mention the types of queries you can handle (structured vs unstructured)\n"
+        "- Give examples of what kinds of questions work well\n"
+        "- Suggest that they can ask for specific recommendations later\n"
+        "- Be encouraging and helpful, not just list features\n"
+        "\n"
+        "SPECIAL HANDLING FOR SUGGESTION QUESTIONS:\n"
+        "If the user asks 'What do you think I should ask next?' or 'Why do you think that?' or similar:\n"
+        "- Have a conversation about what they might want to explore\n"
+        "- Explain your reasoning based on their interests and past queries\n"
+        "- Give thoughtful suggestions with explanations\n"
+        "- Be conversational and encouraging\n"
+        "- Don't just list suggestions - explain why they might be interesting\n"
+        "- Ask follow-up questions to understand their interests better\n"
         "\nExplain your reasoning when deciding which tool to use.\n"
         "Use tools when needed to provide comprehensive analysis and insights.\n"
         "Focus on providing meaningful summaries and discovering patterns in the data.\n"
@@ -117,8 +133,8 @@ def unstructured_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
         # Add initial thinking message with better reasoning
         thinking_msg = m(
             role="assistant",
-            content="I need to analyze this unstructured query to determine the best analysis approach for providing insights and patterns.",
-            reasoning="Starting unstructured query analysis - this type of query requires deeper analysis tools to discover patterns and provide meaningful insights",
+            content="I need to understand what you're asking and figure out the best way to help you with this question.",
+            reasoning="Starting to analyze your question to determine the best approach for providing helpful insights and information",
             message_type=MessageType.THINKING
         )
         thinking_messages.append(thinking_msg)
@@ -135,7 +151,7 @@ def unstructured_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
             tool_call_msg = m(
                 role="assistant",
                 content=f"I'll use the {', '.join(tool_names)} tool(s) to analyze the data and discover patterns.",
-                reasoning=msg.content or f"Based on the query analysis, I need to use {len(msg.tool_calls)} analysis tool(s) to provide meaningful insights and patterns",
+                reasoning=msg.content or f"Based on your question, I need to gather some information to provide you with the best possible answer",
                 message_type=MessageType.TOOL_CALL,
                 tool_calls=[
                     {
@@ -192,8 +208,8 @@ def unstructured_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
             # Add final thinking message with better reasoning
             final_thinking_msg = m(
                 role="assistant",
-                content="Now I have the analysis results. Let me synthesize these insights and provide a comprehensive summary.",
-                reasoning="I've gathered the analysis data from the tools. Now I need to synthesize these insights into a meaningful summary that answers the user's question with clear patterns and observations.",
+                content="Now I have the information I need. Let me organize this into a clear, helpful response for you.",
+                reasoning="I've gathered the relevant data. Now I need to put it all together into a comprehensive answer that addresses your question clearly and usefully.",
                 message_type=MessageType.THINKING
             )
             thinking_messages.append(final_thinking_msg)
