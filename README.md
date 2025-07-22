@@ -29,6 +29,8 @@ This project implements an intelligent agent that can answer questions about cus
 - 📝 Summarized user memory (profile, preferences, interests)
 - 🧭 Next Query Recommender (interactive, LLM-powered)
 
+> **Note:** This implementation focuses on the core LangGraph requirements and new bonus features. The original reactive/plan thinking modes from part 1 have been replaced with the more sophisticated LangGraph workflow architecture.
+
 ## Architecture & DDD Structure
 
 The application follows a modular, domain-driven architecture:

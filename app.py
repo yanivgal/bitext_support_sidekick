@@ -185,21 +185,9 @@ def main():
     sidebar_session_controls()
     current_session_id = get_current_session()
 
-    # Add mode toggle in the sidebar
-    with st.sidebar:
-        st.subheader("Agent Mode")
-        mode = st.radio(
-            "Select agent mode:",
-            ["reactive", "plan"],
-            key="agent_mode"
-        )
-        st.caption("⚠️ Switching modes will reset the conversation")
-        st.caption("💡 reactive: step-by-step thinking | plan: creates a plan first")
-
-    # Initialize the agent and chat_turns on mode change or first run
-    if 'agent' not in st.session_state or st.session_state.get('current_mode') != mode:
-        st.session_state.agent = Agent(mode=mode)
-        st.session_state.current_mode = mode
+    # Initialize the agent and chat_turns
+    if 'agent' not in st.session_state:
+        st.session_state.agent = Agent()
         st.session_state.chat_turns = []
     if 'chat_turns' not in st.session_state:
         st.session_state.chat_turns = []

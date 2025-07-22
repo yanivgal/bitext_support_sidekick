@@ -11,13 +11,7 @@ class Agent:
     def __init__(
         self,
         model: str = "gpt-4o-mini",
-        mode: str = "reactive",
     ):
-        # For now, keep mode for compatibility but it won't be used in LangGraph version
-        if mode not in ["reactive", "plan"]:
-            raise ValueError("mode must be 'reactive' or 'plan'")
-        
-        self._mode = mode
         self._model = model
         # LangGraph graph is already compiled in brain/graph.py
 
