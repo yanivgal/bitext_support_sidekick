@@ -143,11 +143,13 @@ def display_thinking_messages(messages, duration: float | None = None):
         for i, msg in enumerate(messages):
             if msg["message_type"] == MessageType.THINKING:
                 st.write("🤔  " + msg["content"])
-                if "reasoning" in msg:
+                if "reasoning" in msg and msg["reasoning"]:
                     st.markdown(f"> **Reasoning:** {msg['reasoning']}")
             elif msg["message_type"] == MessageType.TOOL_CALL:
                 if tool_calls and current_tool_call_idx == 0:
                     st.write(f"🔧  {msg['content']}")
+                    if "reasoning" in msg and msg["reasoning"]:
+                        st.markdown(f"> **Reasoning:** {msg['reasoning']}")
             elif msg["message_type"] == MessageType.TOOL_RESULT:
                 if current_tool_call_idx < len(tool_calls):
                     tool_call_idx, tool_call = tool_calls[current_tool_call_idx]
