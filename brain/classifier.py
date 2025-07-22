@@ -11,11 +11,13 @@ _classifier_prompt = (
     "- structured: Direct, specific requests for data (e.g., counts, lists, examples, exact matches, statistics).\n"
     "- unstructured: Requests for summaries, analysis, explanations, or pattern discovery (e.g., summarize, analyze, explain, find common patterns, generate FAQ).\n"
     "- recommend_query: Requests for advice, suggestions, or recommendations about what to ask next.\n"
+    "- memory_query: Requests about user memory, preferences, or what the agent remembers about the user.\n"
     "\n"
     "Instructions:\n"
     "- If the query is about general dataset info, categories, intents, or direct data retrieval, classify as 'structured'.\n"
     "- If the query is about summarizing, analyzing, or discovering patterns, classify as 'unstructured'.\n"
     "- If the query is about what to ask next, or asks for advice, suggestions, or recommendations, classify as 'recommend_query'.\n"
+    "- If the query is about user memory, preferences, or what the agent remembers about the user, classify as 'memory_query'.\n"
     "\n"
     "Examples:\n"
     "- 'What are the most frequent categories?' → structured\n"
@@ -25,12 +27,15 @@ _classifier_prompt = (
     "- 'Advise me what to query next' → recommend_query\n"
     "- 'What should I ask now?' → recommend_query\n"
     "- 'Suggest a good next question' → recommend_query\n"
+    "- 'What do you remember about me?' → memory_query\n"
+    "- 'Tell me about my preferences' → memory_query\n"
+    "- 'What do you know about me?' → memory_query\n"
     "\n"
-    "Respond only with a JSON object with two fields: 'query_type' (structured, unstructured, or recommend_query) and 'reasoning' (a short explanation for your classification)."
+    "Respond only with a JSON object with two fields: 'query_type' (structured, unstructured, recommend_query, or memory_query) and 'reasoning' (a short explanation for your classification)."
 )
 
 class QueryClassification(BaseModel):
-    query_type: str = Field(..., description="structured, unstructured, or recommend_query")
+    query_type: str = Field(..., description="structured, unstructured, recommend_query, or memory_query")
     reasoning: str = Field(..., description="Short explanation for the classification")
 
 _llm = ChatService("gpt-4o-mini")
@@ -50,6 +55,7 @@ def classify_query_node(state: Dict[str, Any]) -> Dict[str, Any]:
 
     if scope_result.scope.value.lower() == "out of scope":
         print("   → Classified as OUT OF SCOPE by scope checker")
+        print(f"   → Reasoning: {scope_result.reasoning}")
         return {
             **state,
             "query_type": "out_of_scope",
@@ -65,8 +71,7 @@ def classify_query_node(state: Dict[str, Any]) -> Dict[str, Any]:
     ]
     response = _llm.chat(messages, response_format=QueryClassification)
     classification = response.choices[0].message.parsed
-    print(f"   LLM classified as: {classification.query_type}")
-    print(f"   Reasoning: {classification.reasoning}")
+    print(f"   → Classified as {classification.query_type.upper()}: {classification.reasoning}")
 
     return {
         **state,

@@ -10,7 +10,7 @@ from brain.structured_agent import structured_agent_node
 from brain.unstructured_agent import unstructured_agent_node
 from brain.out_of_scope import out_of_scope_node
 from brain.summary import summary_node
-from brain.memory_manager import load_user_memory, get_user_memory_summary
+from brain.memory_manager import load_user_memory
 from brain.recommender import recommender_node
 
 
@@ -73,13 +73,6 @@ def create_agent_graph() -> StateGraph:
 
 def route_query(state: AgentState) -> str:
     """Route to appropriate node based on query type."""
-    user_message = state.get("user_message", "").lower()
-    
-    # Check if this is a memory query
-    memory_keywords = ["remember", "memory", "what do you know about me", "tell me about myself"]
-    if any(keyword in user_message for keyword in memory_keywords):
-        return "memory_query"
-    
     return state["query_type"]
 
 
@@ -88,24 +81,100 @@ def memory_response_node(state: Dict[str, Any]) -> Dict[str, Any]:
     Handle memory queries like "What do you remember about me?"
     """
     user_message = state.get("user_message", "")
+    user_memory = state.get("user_memory", {})
     print(f"🧠 Memory Query: Processing '{user_message}'")
     
-    # Get memory summary
-    memory_summary = get_user_memory_summary()
+    # Track thinking messages for UI display
+    thinking_messages = []
+    
+    # Add initial thinking message
+    thinking_msg = m(
+        role="assistant",
+        content="I need to check what I remember about you from our previous conversations.",
+        reasoning="Starting memory query analysis - I need to retrieve and organize the information I've learned about this user",
+        message_type=MessageType.THINKING
+    )
+    thinking_messages.append(thinking_msg)
+    print(f"\n{thinking_msg['reasoning']}")
+    print(f"My next step should be: {thinking_msg['content']}")
+    
+    # Add memory retrieval thinking message
+    memory_retrieval_msg = m(
+        role="assistant",
+        content="Retrieving your conversation history, interests, and preferences...",
+        reasoning="Accessing stored information about the user's past interactions, interests, and query preferences",
+        message_type=MessageType.THINKING
+    )
+    thinking_messages.append(memory_retrieval_msg)
+    print(f"\n{memory_retrieval_msg['reasoning']}")
+    print(f"My next step should be: {memory_retrieval_msg['content']}")
+    
+    # Add memory data result (similar to tool results)
+    import json
+    memory_result_msg = m(
+        role="tool",
+        content=json.dumps(user_memory, ensure_ascii=False, indent=2),
+        message_type=MessageType.TOOL_RESULT,
+        reasoning="Retrieved user memory data from storage",
+        tool_call_id="memory_retrieval"
+    )
+    thinking_messages.append(memory_result_msg)
+    print(f"   ✅ Memory retrieval returned {len(user_memory)} key-value pairs")
+    
+    # Use LLM to generate a natural, human-readable response
+    from chat.service import Service as ChatService
+    llm = ChatService("gpt-4o-mini")
+    
+    memory_prompt = f"""
+You are a helpful assistant that remembers information about users. The user is asking about what you remember about them.
+
+Here is the raw memory data about this user:
+{user_memory}
+
+Please create a natural, conversational response that tells the user what you remember about them. 
+
+Guidelines:
+- Be friendly and conversational, not robotic
+- Structure the information clearly with sections if there's a lot of data
+- Use bullet points or formatting to make it easy to read
+- Focus on the most interesting/relevant information
+- If there's not much data, be encouraging about learning more
+- Keep it concise but comprehensive
+- Use a warm, helpful tone
+
+The user asked: "{user_message}"
+"""
+    
+    # Add final thinking message
+    final_thinking_msg = m(
+        role="assistant",
+        content="Now I'll organize this information into a clear, friendly response for you.",
+        reasoning="I have the memory data. Now I need to present it in a natural, well-structured way that's easy to understand",
+        message_type=MessageType.THINKING
+    )
+    thinking_messages.append(final_thinking_msg)
+    print(f"\n{final_thinking_msg['reasoning']}")
+    print(f"My next step should be: {final_thinking_msg['content']}")
+    
+    # Generate response using LLM
+    llm_response = llm.chat([
+        {"role": "system", "content": memory_prompt}
+    ])
     
     # Create response
     response = m(
         role="assistant",
-        content=memory_summary,
-        reasoning="Retrieved user memory summary from stored profile",
+        content=llm_response.choices[0].message.content,
+        reasoning="Retrieved and summarized your conversation history, interests, and preferences from our previous interactions",
         message_type=MessageType.USER_FACING
     )
     
     return {
         **state,
-        "messages": state["messages"] + [response],
+        "messages": state["messages"] + thinking_messages + [response],
         "final_answer": response["content"],
-        "current_step": "handled_memory_query"
+        "current_step": "handled_memory_query",
+        "thinking_messages": thinking_messages
     }
 
 
