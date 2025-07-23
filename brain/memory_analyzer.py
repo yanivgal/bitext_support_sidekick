@@ -210,29 +210,54 @@ Generate a single sentence explaining what insights you found about the user's p
             
             # Handle personal info updates with confidence logic
             personal_info_updated = False
+            current_personal = current_user_memory.get("personal_info", {})
+            
+            # Start with current personal info to preserve all existing fields
+            updated_personal_info = current_personal.copy()
+            
+            # Update session tracking automatically (always happens)
+            from datetime import datetime
+            current_date = datetime.now().isoformat()
+            updated_personal_info["last_session_date"] = current_date
+            
+            # Increment session count
+            current_session_count = current_personal.get("session_count", 0)
+            updated_personal_info["session_count"] = current_session_count + 1
+            
+            # Set first session date if not already set
+            if not current_personal.get("first_session_date"):
+                updated_personal_info["first_session_date"] = current_date
+                print(f"   🎉 First session recorded: {current_date}")
+            
+            print(f"   📅 Session tracking updated: count={updated_personal_info['session_count']}, last={current_date}")
+            
             if "personal_info" in insights and insights["personal_info"]:
-                personal_info = insights["personal_info"]
-                current_personal = current_user_memory.get("personal_info", {})
+                new_personal_info = insights["personal_info"]
                 
                 # Only update name if we have higher confidence or explicit source
-                if personal_info.get("name") and personal_info.get("name") != current_personal.get("name"):
-                    new_confidence = personal_info.get("name_confidence", "low")
+                if new_personal_info.get("name") and new_personal_info.get("name") != current_personal.get("name"):
+                    new_confidence = new_personal_info.get("name_confidence", "low")
                     current_confidence = current_personal.get("name_confidence", "low")
                     
                     # Confidence hierarchy: high > medium > low
                     confidence_levels = {"low": 1, "medium": 2, "high": 3}
                     
                     if (confidence_levels.get(new_confidence, 0) > confidence_levels.get(current_confidence, 0) or 
-                        personal_info.get("name_source") == "explicit"):
-                        print(f"   🎯 Updating name to '{personal_info['name']}' (confidence: {new_confidence})")
+                        new_personal_info.get("name_source") == "explicit"):
+                        print(f"   🎯 Updating name to '{new_personal_info['name']}' (confidence: {new_confidence})")
+                        
+                        # Update name-related fields
+                        updated_personal_info["name"] = new_personal_info["name"]
+                        updated_personal_info["name_confidence"] = new_confidence
+                        updated_personal_info["name_source"] = new_personal_info.get("name_source", "unknown")
                         
                         # Add name learning thinking message
                         name_reasoning_prompt = f"""
 You have learned a user's name. Generate a brief, natural reasoning for this learning moment.
 
-Name learned: {personal_info['name']}
+Name learned: {new_personal_info['name']}
 Confidence: {new_confidence}
-Source: {personal_info.get('name_source', 'unknown')}
+Source: {new_personal_info.get('name_source', 'unknown')}
 
 Generate a single sentence explaining why learning this name is important for future conversations.
 """
@@ -244,7 +269,7 @@ Generate a single sentence explaining why learning this name is important for fu
                         
                         name_msg = m(
                             role="assistant",
-                            content=f"Great! I learned that your name is {personal_info['name']}. I'll remember that for our future conversations.",
+                            content=f"Great! I learned that your name is {new_personal_info['name']}. I'll remember that for our future conversations.",
                             reasoning=name_reasoning,
                             message_type=MessageType.THINKING
                         )
@@ -252,19 +277,19 @@ Generate a single sentence explaining why learning this name is important for fu
                         personal_info_updated = True
                     else:
                         print(f"   ⚠️  Skipping name update - current confidence higher")
-                        personal_info["name"] = current_personal.get("name")
-                        personal_info["name_confidence"] = current_personal.get("name_confidence")
-                        personal_info["name_source"] = current_personal.get("name_source")
                 
                 # Update greeting preference if detected
-                if personal_info.get("preferred_greeting") and not current_personal.get("preferred_greeting"):
-                    print(f"   👋 Detected greeting preference: '{personal_info['preferred_greeting']}'")
+                if new_personal_info.get("preferred_greeting") and not current_personal.get("preferred_greeting"):
+                    print(f"   👋 Detected greeting preference: '{new_personal_info['preferred_greeting']}'")
+                    
+                    # Update greeting preference
+                    updated_personal_info["preferred_greeting"] = new_personal_info["preferred_greeting"]
                     
                     # Add greeting learning thinking message
                     greeting_reasoning_prompt = f"""
 You have learned a user's preferred greeting style. Generate a brief, natural reasoning for this learning moment.
 
-Greeting preference: {personal_info['preferred_greeting']}
+Greeting preference: {new_personal_info['preferred_greeting']}
 
 Generate a single sentence explaining why learning this greeting preference will improve future conversations.
 """
@@ -276,14 +301,23 @@ Generate a single sentence explaining why learning this greeting preference will
                     
                     greeting_msg = m(
                         role="assistant",
-                        content=f"I noticed you prefer '{personal_info['preferred_greeting']}' as a greeting. I'll use that style in our conversations.",
+                        content=f"I noticed you prefer '{new_personal_info['preferred_greeting']}' as a greeting. I'll use that style in our conversations.",
                         reasoning=greeting_reasoning,
                         message_type=MessageType.THINKING
                     )
                     thinking_messages.append(greeting_msg)
                     personal_info_updated = True
                 
-                insights["personal_info"] = personal_info
+                # Update session-related fields if they're provided
+                if new_personal_info.get("last_session_date"):
+                    updated_personal_info["last_session_date"] = new_personal_info["last_session_date"]
+                if new_personal_info.get("session_count") is not None:
+                    updated_personal_info["session_count"] = new_personal_info["session_count"]
+                if new_personal_info.get("first_session_date"):
+                    updated_personal_info["first_session_date"] = new_personal_info["first_session_date"]
+                
+                # Use the updated personal info that preserves all fields
+                insights["personal_info"] = updated_personal_info
             
             # Add memory update thinking message
             update_reasoning_prompt = f"""
@@ -356,7 +390,7 @@ Generate a single sentence explaining what you accomplished and how it will help
                     "thinking_messages": thinking_messages
                 }
         else:
-            # No insights found, but still show thinking process
+            # No insights found, but still show thinking process and save session tracking
             no_insights_reasoning_prompt = f"""
 You analyzed a conversation but didn't find new insights about the user. Generate a brief, natural reasoning for this situation.
 
@@ -378,16 +412,46 @@ Generate a single sentence explaining that you didn't find new insights but are 
                 message_type=MessageType.THINKING
             )
             thinking_messages.append(no_insights_msg)
-            return {
-                **state,
-                "messages": state["messages"] + thinking_messages,
-                "thinking_messages": thinking_messages
+            
+            # Still save session tracking even when no insights are found
+            session_update = {
+                "personal_info": updated_personal_info,
+                "conversation_count": current_user_memory.get("conversation_count", 0) + 1
             }
+            
+            # Update query type preferences if applicable
+            if query_type in ["structured", "unstructured"]:
+                current_prefs = current_user_memory.get("query_types_preferred", {})
+                current_prefs[query_type] = current_prefs.get(query_type, 0) + 1
+                session_update["query_types_preferred"] = current_prefs
+            
+            # Save session tracking
+            from brain.memory_manager import update_user_memory, load_user_memory
+            success = update_user_memory(session_update)
+            if success:
+                print(f"   📅 Session tracking saved successfully")
+                updated_memory = load_user_memory()
+                return {
+                    **state,
+                    "user_memory": updated_memory,
+                    "current_step": "updated_session_tracking",
+                    "messages": state["messages"] + thinking_messages,
+                    "thinking_messages": thinking_messages
+                }
+            else:
+                print(f"   ⚠️  Failed to save session tracking")
+                return {
+                    **state,
+                    "messages": state["messages"] + thinking_messages,
+                    "thinking_messages": thinking_messages
+                }
         
     except Exception as e:
         print(f"   Error in summary node: {e}")
         # Add error thinking message with LLM-generated reasoning
-        exception_reasoning_prompt = f"""
+        try:
+            llm = _get_llm()
+            exception_reasoning_prompt = f"""
 You encountered an exception while trying to learn from a conversation. Generate a brief, natural reasoning for this situation.
 
 Exception: {e}
@@ -395,11 +459,14 @@ User's question: "{user_message}"
 
 Generate a single sentence explaining that you encountered an error but will keep trying.
 """
-        
-        exception_reasoning_response = llm.chat([
-            {"role": "system", "content": exception_reasoning_prompt}
-        ])
-        exception_reasoning = exception_reasoning_response.choices[0].message.content
+            
+            exception_reasoning_response = llm.chat([
+                {"role": "system", "content": exception_reasoning_prompt}
+            ])
+            exception_reasoning = exception_reasoning_response.choices[0].message.content
+        except Exception as llm_error:
+            print(f"   ⚠️  Could not generate error reasoning: {llm_error}")
+            exception_reasoning = "I encountered an error while trying to learn from our conversation, but I'll keep trying."
         
         error_msg = m(
             role="assistant",

@@ -112,9 +112,9 @@ def _think_next_step(messages: List[Dict[str, Any]]) -> ReactiveThinkingStep:
                 "content": msg["content"]
             })
         elif msg.get("message_type") == MessageType.TOOL_RESULT:
-            # Include tool results so the thinking step knows what data was retrieved
+            # Include tool results as assistant messages for thinking context
             thinking_messages.append({
-                "role": "tool",
+                "role": "assistant",
                 "content": f"Tool result: {msg['content']}"
             })
     
@@ -298,7 +298,17 @@ def structured_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
         # Generate final response
         llm = _get_llm()
         print(f"   📝 Calling LLM for final response...")
-        final_resp = llm.chat(working_messages, response_format=FinalResponse)
+        
+        # Prepare messages for final response (only user-facing messages)
+        final_messages = []
+        for msg in working_messages:
+            if msg.get("message_type") == MessageType.USER_FACING:
+                final_messages.append({
+                    "role": msg["role"],
+                    "content": msg["content"]
+                })
+        
+        final_resp = llm.chat(final_messages, response_format=FinalResponse)
         final_response = final_resp.choices[0].message.parsed
         
         print(f"\n📝 FINAL RESPONSE:")
