@@ -9,7 +9,7 @@ from brain.classifier import classify_query_node
 from brain.structured_agent import structured_agent_node
 from brain.unstructured_agent import unstructured_agent_node
 from brain.out_of_scope import out_of_scope_node
-from brain.summary import summary_node
+from brain.memory_analyzer import memory_analyzer_node
 from brain.memory_manager import load_user_memory
 from brain.recommender import recommender_node
 
@@ -36,7 +36,7 @@ def create_agent_graph() -> StateGraph:
     workflow.add_node("structured_agent", structured_agent_node)
     workflow.add_node("unstructured_agent", unstructured_agent_node)
     workflow.add_node("out_of_scope", out_of_scope_node)
-    workflow.add_node("summary", summary_node)
+    workflow.add_node("summary", memory_analyzer_node)
     workflow.add_node("memory_response", memory_response_node)
     workflow.add_node("recommender", recommender_node)
     
