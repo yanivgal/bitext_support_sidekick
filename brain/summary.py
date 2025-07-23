@@ -1,9 +1,15 @@
 from typing import Dict, Any
 from chat.message import MessageType, m
-from chat.service import Service as ChatService
-from brain.memory_manager import update_user_memory, load_user_memory
 
-_llm = ChatService("gpt-4o-mini")
+# Initialize LLM service lazily to avoid import-time API key issues
+_llm = None
+
+def _get_llm():
+    global _llm
+    if _llm is None:
+        from chat.service import Service as ChatService
+        _llm = ChatService("gpt-4o-mini")
+    return _llm
 
 _summary_prompt = """
 You are a user memory analyzer. Your job is to analyze the current conversation turn and extract key information about the user's preferences, interests, and patterns.
@@ -74,7 +80,8 @@ Analyze this conversation turn and extract new insights about the user.
 """
 
         # Get LLM analysis
-        response = _llm.chat([
+        llm = _get_llm()
+        response = llm.chat([
             {"role": "system", "content": analysis_prompt}
         ])
         
@@ -110,6 +117,7 @@ Analyze this conversation turn and extract new insights about the user.
                 insights["query_types_preferred"] = current_prefs
             
             # Save to file
+            from brain.memory_manager import update_user_memory, load_user_memory
             success = update_user_memory(insights)
             if success:
                 # Update the state with new memory

@@ -50,8 +50,21 @@ class QueryClassification(BaseModel):
     query_type: str = Field(..., description="structured, unstructured, recommend_query, or memory_query")
     reasoning: str = Field(..., description="Short explanation for the classification")
 
-_llm = ChatService("gpt-4o-mini")
-_scope_checker = Checker(model="gpt-4o-mini")
+# Initialize these lazily to avoid import-time API key issues
+_llm = None
+_scope_checker = None
+
+def _get_llm():
+    global _llm
+    if _llm is None:
+        _llm = ChatService("gpt-4o-mini")
+    return _llm
+
+def _get_scope_checker():
+    global _scope_checker
+    if _scope_checker is None:
+        _scope_checker = Checker(model="gpt-4o-mini")
+    return _scope_checker
 
 def classify_query_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -61,7 +74,8 @@ def classify_query_node(state: Dict[str, Any]) -> Dict[str, Any]:
     chat_history = state.get("messages", [])
 
     print(f"🔍 Scope checking query: {user_message}")
-    scope_result = _scope_checker.check(user_message, chat_history)
+    scope_checker = _get_scope_checker()
+    scope_result = scope_checker.check(user_message, chat_history)
     print(f"   Scope check result: {scope_result.scope.value}")
     print(f"   Scope reasoning: {scope_result.reasoning}")
 
@@ -77,11 +91,12 @@ def classify_query_node(state: Dict[str, Any]) -> Dict[str, Any]:
 
     # If in-scope, use LLM to classify as structured/unstructured/recommend_query
     print(f"🔍 LLM Classifying in-scope query: {user_message}")
+    llm = _get_llm()
     messages = [
         {"role": "system", "content": _classifier_prompt},
         {"role": "user", "content": user_message}
     ]
-    response = _llm.chat(messages, response_format=QueryClassification)
+    response = llm.chat(messages, response_format=QueryClassification)
     classification = response.choices[0].message.parsed
     print(f"   → Classified as {classification.query_type.upper()}: {classification.reasoning}")
 

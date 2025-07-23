@@ -61,7 +61,12 @@ class Checker:
 
     def __init__(self, model: str):
         self._model = model
-        self._llm = ChatService(model)
+        self._llm = None
+
+    def _get_llm(self):
+        if self._llm is None:
+            self._llm = ChatService(self._model)
+        return self._llm
 
     def check(self, user_message: str, chat_history: List[Dict[str, str]] | None = None) -> ScopeCheck:
 
@@ -82,7 +87,8 @@ class Checker:
             if context:
                 user_message = f"Previous conversation:\n{context}\n\nCurrent message:\n{user_message}"
 
-        response = self._llm.chat(
+        llm = self._get_llm()
+        response = llm.chat(
             messages=[
                 {"role": "system", "content": _system_prompt},
                 {"role": "user", "content": user_message}

@@ -5,8 +5,14 @@ from tools.tools import _TOOL_FUNCS, TOOLS_SCHEMA
 from brain.final_response import FinalResponse
 import json
 
-# Instantiate the LLM service
-_llm = ChatService("gpt-4o-mini")
+# Initialize LLM service lazily to avoid import-time API key issues
+_llm = None
+
+def _get_llm():
+    global _llm
+    if _llm is None:
+        _llm = ChatService("gpt-4o-mini")
+    return _llm
 
 def _get_unstructured_prompt() -> str:
     """Get the system prompt for unstructured queries."""
@@ -142,7 +148,7 @@ def unstructured_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
         print(f"My next step should be: {thinking_msg['content']}")
         
         # Get tool calls from LLM
-        resp = _llm.chat(llm_messages, tools_json=TOOLS_SCHEMA)
+        resp = _get_llm().chat(llm_messages, tools_json=TOOLS_SCHEMA)
         msg = resp.choices[0].message
         
         if msg.tool_calls:
@@ -244,7 +250,7 @@ def unstructured_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
                 })
             
             # Generate final response
-            final_resp = _llm.chat(final_messages, response_format=FinalResponse)
+            final_resp = _get_llm().chat(final_messages, response_format=FinalResponse)
             final_response = final_resp.choices[0].message.parsed
             
             print(f"🔍 Final response generated: {final_response.content}")
@@ -259,7 +265,7 @@ def unstructured_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
             
         else:
             # No tool calls, generate direct response
-            final_resp = _llm.chat(llm_messages, response_format=FinalResponse)
+            final_resp = _get_llm().chat(llm_messages, response_format=FinalResponse)
             final_response = final_resp.choices[0].message.parsed
             
             response = m(

@@ -1,9 +1,15 @@
 from typing import Dict, Any, List
 from chat.message import MessageType, m
-from chat.service import Service as ChatService
-from brain.memory_manager import load_user_memory
 
-_llm = ChatService("gpt-4o-mini")
+# Initialize LLM service lazily to avoid import-time API key issues
+_llm = None
+
+def _get_llm():
+    global _llm
+    if _llm is None:
+        from chat.service import Service as ChatService
+        _llm = ChatService("gpt-4o-mini")
+    return _llm
 
 _recommender_prompt = """
 You are a next-query recommender for a customer support data analyst chatbot.
@@ -57,7 +63,7 @@ Recent conversation:
 """
     
     # Call LLM
-    response = _llm.chat([
+    response = _get_llm().chat([
         {"role": "system", "content": prompt}
     ])
     
