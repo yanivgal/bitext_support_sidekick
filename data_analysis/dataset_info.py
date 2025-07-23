@@ -1,7 +1,7 @@
 from typing import Dict, Any
 import pandas as pd
 
-from bitext.datastore import _store, _CATEGORY_COL, _INTENT_COL, _FLAGS_COL, _INSTRUCTION_COL, _RESPONSE_COL
+from data_analysis.dataset_access import _store, _CATEGORY_COL, _INTENT_COL, _FLAGS_COL, _INSTRUCTION_COL, _RESPONSE_COL
 
 def dataset_info() -> Dict[str, Any]:
     """

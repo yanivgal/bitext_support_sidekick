@@ -1,7 +1,7 @@
 from typing import Dict, Any, List, Union
 import pandas as pd
 
-from bitext.datastore import _store
+from data_analysis.dataset_access import _store
 
 _df = _store.df
 

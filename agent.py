@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from typing import Dict, List, Tuple, Optional, Any
-from brain.graph import agent_graph, AgentState
-from chat.message import MessageType, m
-from brain.memory_manager import load_user_memory
+from workflow_orchestration.workflow_graph import agent_graph, AgentState
+from communication.message_formatter import MessageType, m
+from user_learning.user_profile_storage import load_user_memory
 
 
 class Agent:

@@ -3,10 +3,10 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 import streamlit as st
 from agent import Agent
-from chat.message import MessageType, Message
+from communication.message_formatter import MessageType, Message
 import time
 import uuid
-from brain.graph import agent_graph
+from workflow_orchestration.workflow_graph import agent_graph
 
 from dotenv import load_dotenv
 

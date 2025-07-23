@@ -1,7 +1,7 @@
 from typing import Dict, Any
 import pandas as pd
 
-from bitext.datastore import _store
+from data_analysis.dataset_access import _store
 
 def exact_search(text: str, column: str | None = None, k: int = 5) -> pd.DataFrame:
     """

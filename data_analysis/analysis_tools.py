@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.cluster import KMeans
 import pandas as pd
 
-from bitext.datastore import _store
+from data_analysis.dataset_access import _store
 
 _df = _store.df
 _model = _store.model
