@@ -295,11 +295,7 @@ def main():
             for msg in reversed(updated_history):
                 if msg.get("message_type") == MessageType.USER_FACING and msg["role"] == "assistant":
                     assistant_msg = msg
-                    break
-            
-            print(f"🔍 DEBUG: Found assistant message: {assistant_msg['content'] if assistant_msg else 'None'}")
-            print(f"🔍 DEBUG: Total messages in history: {len(updated_history)}")
-            print(f"🔍 DEBUG: Thinking messages count: {len(thinking_msgs)}")
+                    break 
             
             st.session_state.chat_turns[-1]["thinking"] = thinking_msgs
             st.session_state.chat_turns[-1]["assistant"] = assistant_msg
