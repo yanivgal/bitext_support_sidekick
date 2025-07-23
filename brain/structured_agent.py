@@ -191,8 +191,8 @@ def structured_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
             # Add thinking message with enhanced formatting
             thinking_msg = m(
                 role="assistant",
-                content=thinking_step.next_step,
-                reasoning=thinking_step.reasoning,
+                content=thinking_step.reasoning,  # Show detailed reasoning as main content
+                reasoning=thinking_step.next_step,  # Put brief action in reasoning field
                 message_type=MessageType.THINKING
             )
             working_messages.append(thinking_msg)
