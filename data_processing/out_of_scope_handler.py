@@ -1,5 +1,5 @@
 from typing import Dict, Any
-from chat.message import MessageType, m
+from communication.message_formatter import MessageType, m
 
 def out_of_scope_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """

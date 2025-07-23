@@ -2,16 +2,16 @@ from typing import Dict, List, Any, TypedDict, Annotated
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 from pydantic import BaseModel
-from chat.message import MessageType, m
-from tools.tools import _TOOL_FUNCS
+from communication.message_formatter import MessageType, m
+from data_analysis.tools import _TOOL_FUNCS
 import json
-from brain.classifier import classify_query_node
-from brain.structured_agent import structured_agent_node
-from brain.unstructured_agent import unstructured_agent_node
-from brain.out_of_scope import out_of_scope_node
-from brain.memory_analyzer import memory_analyzer_node
-from brain.memory_manager import load_user_memory
-from brain.recommender import recommender_node
+from query_intelligence.query_classifier import classify_query_node
+from data_processing.data_query_processor import structured_agent_node
+from data_processing.analysis_processor import unstructured_agent_node
+from data_processing.out_of_scope_handler import out_of_scope_node
+from user_learning.conversation_analyzer import memory_analyzer_node
+from user_learning.user_profile_storage import load_user_memory
+from user_learning.query_recommender import recommender_node
 
 
 class AgentState(TypedDict):

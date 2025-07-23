@@ -1,5 +1,5 @@
 from typing import Dict, Any, List
-from chat.message import MessageType, m
+from communication.message_formatter import MessageType, m
 
 # Initialize LLM service lazily to avoid import-time API key issues
 _llm = None
@@ -7,7 +7,7 @@ _llm = None
 def _get_llm():
     global _llm
     if _llm is None:
-        from chat.service import Service as ChatService
+        from communication.llm_communicator import Service as ChatService
         _llm = ChatService("gpt-4o-mini")
     return _llm
 

@@ -1,7 +1,7 @@
 import openai
 from typing import List, Dict, Any
 from pydantic import BaseModel
-from .message import MessageType
+from .message_formatter import MessageType
 
 class Service:
     """Service for interacting with OpenAI chat completions API."""

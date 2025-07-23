@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from chat.message import MessageType
+from communication.message_formatter import MessageType
 
 class FinalResponse(BaseModel):
     

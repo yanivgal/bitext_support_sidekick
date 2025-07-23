@@ -1,8 +1,8 @@
 from typing import Dict, Any
 from pydantic import BaseModel, Field
-from chat.service import Service as ChatService
-from chat.message import MessageType
-from scope_checker.checker import Checker
+from communication.llm_communicator import Service as ChatService
+from communication.message_formatter import MessageType
+from .scope_checker import Checker
 
 # LLM-based classifier system prompt for structured/unstructured
 _classifier_prompt = (

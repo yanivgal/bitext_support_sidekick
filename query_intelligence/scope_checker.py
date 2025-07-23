@@ -1,6 +1,6 @@
-from chat.service import Service as ChatService
+from communication.llm_communicator import Service as ChatService
 from typing import List, Dict
-from chat.message import MessageType
+from communication.message_formatter import MessageType
 from .scope import ScopeCheck
 
 _system_prompt = (

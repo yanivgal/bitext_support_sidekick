@@ -1,8 +1,8 @@
 from typing import Dict, Any, List
-from chat.message import MessageType, m
-from chat.service import Service as ChatService
-from tools.tools import _TOOL_FUNCS, TOOLS_SCHEMA
-from brain.final_response import FinalResponse
+from communication.message_formatter import MessageType, m
+from communication.llm_communicator import Service as ChatService
+from data_analysis.tools import _TOOL_FUNCS, TOOLS_SCHEMA
+from .response_generator import FinalResponse
 import json
 
 # Initialize LLM service lazily to avoid import-time API key issues

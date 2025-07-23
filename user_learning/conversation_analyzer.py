@@ -1,5 +1,5 @@
 from typing import Dict, Any
-from chat.message import MessageType, m
+from communication.message_formatter import MessageType, m
 
 # Initialize LLM service lazily to avoid import-time API key issues
 _llm = None
@@ -7,7 +7,7 @@ _llm = None
 def _get_llm():
     global _llm
     if _llm is None:
-        from chat.service import Service as ChatService
+        from communication.llm_communicator import Service as ChatService
         _llm = ChatService("gpt-4o-mini")
     return _llm
 
@@ -313,7 +313,7 @@ Generate a single sentence explaining why saving these insights to memory is imp
             print(f"My next step should be: {update_msg['content']}")
             
             # Save to file
-            from brain.memory_manager import update_user_memory, load_user_memory
+            from .user_profile_storage import update_user_memory, load_user_memory
             success = update_user_memory(insights)
             if success:
                 # Update the state with new memory
@@ -394,7 +394,7 @@ Generate a single sentence explaining that you didn't find new insights but are 
                 session_update["query_types_preferred"] = current_prefs
             
             # Save session tracking
-            from brain.memory_manager import update_user_memory, load_user_memory
+            from .user_profile_storage import update_user_memory, load_user_memory
             success = update_user_memory(session_update)
             if success:
                 print(f"   📅 Session tracking saved successfully")
