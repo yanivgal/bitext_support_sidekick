@@ -3,6 +3,7 @@ from chat.message import MessageType, m
 from chat.service import Service as ChatService
 from tools.tools import _TOOL_FUNCS, TOOLS_SCHEMA
 from brain.final_response import FinalResponse
+from pydantic import BaseModel, Field
 import json
 
 # Initialize LLM service lazily to avoid import-time API key issues
@@ -13,6 +14,38 @@ def _get_llm():
     if _llm is None:
         _llm = ChatService("gpt-4o-mini")
     return _llm
+
+# Reactive thinking step model (similar to old implementation)
+_reactive_thinking_prompt = (
+    "You are thinking out loud before deciding whether to use a tool. "
+    "You will be given a conversation history between a user and an assistant. "
+    "Your goal is to analyze this conversation and determine what single next action will best move toward fully answering the user's request.\n\n"
+    "First, review the conversation history to understand:\n"
+    "- What is the user's original request?\n"
+    "- What information has already been gathered?\n"
+    "- What progress has been made so far?\n"
+    "- What specific details or context are mentioned (like categories, numbers, etc.)?\n\n"
+    "Then assess whether the user's original request has already been completely satisfied. "
+    "If not, think about what specific piece of information is still missing.\n\n"
+    "Finally, decide:\n"
+    "- Should you call a tool to get that missing information?\n"
+    "- Or do you already have everything needed and should just proceed to respond?\n\n"
+    "IMPORTANT GUIDELINES:\n"
+    "1. If you have all the information needed, set use_tool=False and provide a clear next_step that summarizes what you will say in your final response.\n"
+    "2. If you need multiple pieces of information, prefer to gather them one at a time. This helps maintain clarity and makes it easier to track progress.\n"
+    "3. For follow-up questions like 'show me 2 examples of the category', understand what 'the category' refers to from context.\n"
+    "4. Be specific about what tool you need and why - don't be vague.\n"
+    "5. If the user mentions specific numbers (like '2 examples'), make sure to use those in your tool parameters.\n\n"
+    "Respond using the fields:\n"
+    "- 'use_tool': true if a tool is needed, false otherwise\n"
+    "- 'reasoning': a detailed explanation of your analysis, what you found in the conversation, and why you made this decision\n"
+    "- 'next_step': a clear, specific description of the immediate next action—either call a specific tool with parameters or proceed to respond"
+)
+
+class ReactiveThinkingStep(BaseModel):
+    reasoning: str = Field(description="A brief explanation of whether a tool call is needed or not, and why.")
+    use_tool: bool = Field(description="True if a tool should be called next, False if no tool is needed.")
+    next_step: str = Field(description="A single clear sentence describing the immediate next action—either call a specific tool or proceed without tools.")
 
 def _get_structured_prompt() -> str:
     """Get the system prompt for structured queries."""
@@ -62,6 +95,39 @@ def _generate_tool_documentation(tools_dict: Dict) -> str:
     
     return "\n".join(docs)
 
+def _think_next_step(messages: List[Dict[str, Any]]) -> ReactiveThinkingStep:
+    """Analyze conversation and decide what to do next (reactive thinking)."""
+    llm = _get_llm()
+    
+    # Prepare messages for thinking
+    thinking_messages = [
+        {"role": "system", "content": _reactive_thinking_prompt}
+    ]
+    
+    # Add conversation history (only user-facing messages for context)
+    for msg in messages:
+        if msg.get("message_type") == MessageType.USER_FACING:
+            thinking_messages.append({
+                "role": msg["role"],
+                "content": msg["content"]
+            })
+    
+    # Get thinking step decision
+    response = llm.chat(
+        thinking_messages,
+        response_format=ReactiveThinkingStep
+    )
+    
+    thinking_step = response.choices[0].message.parsed
+    
+    # Enhanced console output for thinking step
+    print(f"   📋 CONVERSATION ANALYSIS:")
+    print(f"      - User messages analyzed: {len([m for m in messages if m.get('role') == 'user'])}")
+    print(f"      - Assistant responses: {len([m for m in messages if m.get('role') == 'assistant'])}")
+    print(f"      - Tool results: {len([m for m in messages if m.get('message_type') == MessageType.TOOL_RESULT])}")
+    
+    return thinking_step
+
 def _execute_tool(name: str, args: Dict[str, Any]):
     """Execute a tool with the given arguments."""
     # Get the tool function and schema
@@ -90,129 +156,75 @@ def _execute_tool(name: str, args: Dict[str, Any]):
 
 def structured_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Handle structured queries using LLM to intelligently select and call tools.
+    Handle structured queries using reactive thinking - step by step until satisfied.
     """
     user_message = state["user_message"]
     messages = state.get("messages", [])
     
-    print(f"📊 Structured Agent: Processing '{user_message}'")
-    
-    # Prepare messages for the LLM
-    llm_messages = [
-        {"role": "system", "content": _get_structured_prompt()}
-    ]
-    
-    # Add conversation history
-    for msg in messages:
-        if msg["message_type"] == MessageType.USER_FACING:
-            llm_messages.append({
-                "role": msg["role"],
-                "content": msg["content"]
-            })
-    
-    # Add the current user message
-    llm_messages.append({
-        "role": "user",
-        "content": user_message
-    })
+    print(f"\n{'='*60}")
+    print(f"📊 STRUCTURED AGENT: Processing '{user_message}'")
+    print(f"{'='*60}")
     
     # Track thinking messages for UI display
     thinking_messages = []
     
     try:
-        # Add initial thinking message with better reasoning
-        thinking_msg = m(
-            role="assistant",
-            content="I need to understand what specific information you're looking for and find the best way to get it for you.",
-            reasoning="Starting to analyze your question to determine the best approach for retrieving the specific information you need",
-            message_type=MessageType.THINKING
-        )
-        thinking_messages.append(thinking_msg)
-        print(f"\n{thinking_msg['reasoning']}")
-        print(f"My next step should be: {thinking_msg['content']}")
+        # Working copy of messages for the reactive loop
+        working_messages = messages.copy()
         
-        # Get tool calls from LLM
-        llm = _get_llm()
-        resp = llm.chat(llm_messages, tools_json=TOOLS_SCHEMA)
-        msg = resp.choices[0].message
+        # Add the current user message
+        user_msg = m(role="user", content=user_message, message_type=MessageType.USER_FACING)
+        working_messages.append(user_msg)
         
-        if msg.tool_calls:
-            # Add tool call thinking message with better reasoning
-            tool_names = [tc.function.name for tc in msg.tool_calls]
-            tool_call_msg = m(
+        step_count = 0
+        
+        # Reactive thinking loop - continue until request is satisfied
+        while True:
+            step_count += 1
+            print(f"\n{'─'*50}")
+            print(f"🔄 STEP {step_count}: Thinking about next action...")
+            print(f"{'─'*50}")
+            
+            # Think about what to do next
+            thinking_step = _think_next_step(working_messages)
+            
+            # Add thinking message with enhanced formatting
+            thinking_msg = m(
                 role="assistant",
-                content=f"I'll use the {', '.join(tool_names)} tool(s) to gather the specific information needed.",
-                reasoning=msg.content or f"Based on your question, I need to gather some specific data to provide you with the information you're looking for",
-                message_type=MessageType.TOOL_CALL,
-                tool_calls=[
-                    {
-                        "id": tc.id,
-                        "type": "function",
-                        "function": {
-                            "name": tc.function.name,
-                            "arguments": tc.function.arguments,
-                        },
-                    }
-                    for tc in msg.tool_calls
-                ]
-            )
-            thinking_messages.append(tool_call_msg)
-            
-            print(f"\n🔧 {tool_call_msg['reasoning']}\n")
-            print(f"🔧 Taking actions to gather the required information...\n")
-            
-            # Execute tools and collect results
-            tool_results = []
-            for tc in msg.tool_calls:
-                name = tc.function.name
-                args = json.loads(tc.function.arguments or "{}")
-                print(f"   🛠️  Executing tool: {name} with args: {args}")
-                
-                result = _execute_tool(name, args)
-                tool_results.append({
-                    "tool": name,
-                    "args": args,
-                    "result": result
-                })
-                
-                # Add tool result message
-                tool_result_msg = m(
-                    role="tool",
-                    content=json.dumps(result, ensure_ascii=False),
-                    message_type=MessageType.TOOL_RESULT,
-                    reasoning=f"Tool {name} executed with args: {args}",
-                    tool_call_id=tc.id
-                )
-                thinking_messages.append(tool_result_msg)
-                
-                # Print tool execution summary
-                if isinstance(result, list):
-                    print(f"   ✅ {name} returned {len(result)} items")
-                elif isinstance(result, dict):
-                    if 'count' in result:
-                        print(f"   ✅ {name} found {result['count']} matches")
-                    else:
-                        print(f"   ✅ {name} returned {len(result)} key-value pairs")
-                else:
-                    print(f"   ✅ {name} execution completed")
-            
-            # Add final thinking message with better reasoning
-            final_thinking_msg = m(
-                role="assistant",
-                content="Now I have all the information needed. Let me organize this into a clear, helpful response for you.",
-                reasoning="I've gathered the relevant data. Now I need to put it all together into a comprehensive answer that addresses your question clearly and accurately.",
+                content=thinking_step.next_step,
+                reasoning=thinking_step.reasoning,
                 message_type=MessageType.THINKING
             )
-            thinking_messages.append(final_thinking_msg)
-            print(f"\n{final_thinking_msg['reasoning']}")
-            print(f"My next step should be: {final_thinking_msg['content']}")
+            working_messages.append(thinking_msg)
+            thinking_messages.append(thinking_msg)
             
-            # Generate final response with tool results
-            final_messages = llm_messages + [
-                {
-                    "role": "assistant",
-                    "content": "I've gathered the information you requested.",
-                    "tool_calls": [
+            print(f"\n💭 THINKING:")
+            print(f"   Reasoning: {thinking_msg['reasoning']}")
+            print(f"   Next Step: {thinking_msg['content']}")
+            print(f"   Use Tool: {'Yes' if thinking_step.use_tool else 'No'}")
+            
+            # If no tool needed, we're ready to respond
+            if not thinking_step.use_tool:
+                print(f"\n✅ REQUEST SATISFIED: Ready to generate final response")
+                break
+            
+            print(f"\n🔧 TOOL EXECUTION PHASE:")
+            print(f"   {'─'*40}")
+            
+            # Get tool calls for this step
+            llm = _get_llm()
+            resp = llm.chat(working_messages, tools_json=TOOLS_SCHEMA)
+            msg = resp.choices[0].message
+            
+            if msg.tool_calls:
+                # Add tool call message with enhanced reasoning
+                tool_names = [tc.function.name for tc in msg.tool_calls]
+                tool_call_msg = m(
+                    role="assistant",
+                    content=f"I'll use the {', '.join(tool_names)} tool(s) to gather the specific information needed.",
+                    reasoning=msg.content or f"Based on my analysis, I need to gather some specific data to provide you with the information you're looking for",
+                    message_type=MessageType.TOOL_CALL,
+                    tool_calls=[
                         {
                             "id": tc.id,
                             "type": "function",
@@ -223,47 +235,80 @@ def structured_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
                         }
                         for tc in msg.tool_calls
                     ]
-                }
-            ]
+                )
+                working_messages.append(tool_call_msg)
+                thinking_messages.append(tool_call_msg)
+                
+                print(f"   🎯 Tool Selection: {', '.join(tool_names)}")
+                print(f"   📝 Reasoning: {tool_call_msg['reasoning']}")
+                print(f"   {'─'*40}")
+                
+                # Execute tools and collect results
+                for i, tc in enumerate(msg.tool_calls, 1):
+                    name = tc.function.name
+                    args = json.loads(tc.function.arguments or "{}")
+                    
+                    print(f"\n   🛠️  TOOL {i}: {name}")
+                    print(f"      Parameters: {args}")
+                    print(f"      {'─'*30}")
+                    
+                    result = _execute_tool(name, args)
+                    
+                    # Add tool result message
+                    tool_result_msg = m(
+                        role="tool",
+                        content=json.dumps(result, ensure_ascii=False),
+                        message_type=MessageType.TOOL_RESULT,
+                        reasoning=f"Tool {name} executed successfully with the provided parameters",
+                        tool_call_id=tc.id
+                    )
+                    working_messages.append(tool_result_msg)
+                    thinking_messages.append(tool_result_msg)
+                    
+                    # Print tool execution summary with better formatting
+                    print(f"      ✅ Execution completed")
+                    if isinstance(result, list):
+                        print(f"      📊 Results: {len(result)} items returned")
+                    elif isinstance(result, dict):
+                        if 'count' in result:
+                            print(f"      📊 Results: {result['count']} matches found")
+                        else:
+                            print(f"      📊 Results: {len(result)} key-value pairs returned")
+                    else:
+                        print(f"      📊 Results: Data retrieved successfully")
+                    print(f"      {'─'*30}")
+                
+                print(f"\n🔄 Continuing to next thinking step...")
+                continue
             
-            # Add tool results
-            for i, tool_result in enumerate(tool_results):
-                final_messages.append({
-                    "role": "tool",
-                    "content": json.dumps(tool_result["result"], ensure_ascii=False),
-                    "tool_call_id": msg.tool_calls[i].id
-                })
-            
-            # Generate final response
-            llm = _get_llm()
-            final_resp = llm.chat(final_messages, response_format=FinalResponse)
-            final_response = final_resp.choices[0].message.parsed
-            
-            print(f"🔍 Final response generated: {final_response.content}")
-            print(f"🔍 Final reasoning: {final_response.reasoning}")
-            
-            response = m(
-                role="assistant",
-                content=final_response.content,
-                reasoning=final_response.reasoning,
-                message_type=MessageType.USER_FACING
-            )
-            
-        else:
-            # No tool calls, generate direct response
-            llm = _get_llm()
-            final_resp = llm.chat(llm_messages, response_format=FinalResponse)
-            final_response = final_resp.choices[0].message.parsed
-            
-            response = m(
-                role="assistant",
-                content=final_response.content,
-                reasoning=final_response.reasoning,
-                message_type=MessageType.USER_FACING
-            )
-    
+            # No tool calls but still need tools - this shouldn't happen
+            print(f"\n⚠️  WARNING: Expected tool calls but none were made")
+            break
+        
+        print(f"\n{'='*60}")
+        print(f"🎯 GENERATING FINAL RESPONSE")
+        print(f"{'='*60}")
+        
+        # Generate final response
+        llm = _get_llm()
+        final_resp = llm.chat(working_messages, response_format=FinalResponse)
+        final_response = final_resp.choices[0].message.parsed
+        
+        print(f"\n📝 FINAL RESPONSE:")
+        print(f"   Content: {final_response.content}")
+        print(f"   Reasoning: {final_response.reasoning}")
+        print(f"{'='*60}")
+        
+        response = m(
+            role="assistant",
+            content=final_response.content,
+            reasoning=final_response.reasoning,
+            message_type=MessageType.USER_FACING
+        )
+        
     except Exception as e:
-        print(f"Error in structured agent: {e}")
+        print(f"\n❌ ERROR in structured agent: {e}")
+        print(f"{'='*60}")
         response = m(
             role="assistant",
             content="I encountered an error while processing your structured query. Please try again.",
@@ -276,6 +321,6 @@ def structured_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
         **state,
         "messages": state["messages"] + thinking_messages + [response],
         "final_answer": response["content"],
-        "current_step": "processed_structured_with_tools",
+        "current_step": "processed_structured_with_reactive_thinking",
         "thinking_messages": thinking_messages
     } 
