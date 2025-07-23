@@ -28,7 +28,6 @@ def load_user_memory() -> Dict[str, Any]:
         },
         "personal_info": {
             "name": None,
-            "preferred_greeting": None,
             "name_confidence": "low",
             "name_source": None,
             "last_session_date": None,
@@ -81,7 +80,6 @@ def update_user_memory(updates: Dict[str, Any]) -> bool:
         if "personal_info" not in memory:
             memory["personal_info"] = {
                 "name": None,
-                "preferred_greeting": None,
                 "name_confidence": "low",
                 "name_source": None,
                 "last_session_date": None,

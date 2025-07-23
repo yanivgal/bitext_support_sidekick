@@ -34,7 +34,6 @@ Return a JSON object with the following structure:
   "favorite_categories": ["category1", "category2"],
   "personal_info": {
     "name": "string or null",
-    "preferred_greeting": "string or null",
     "name_confidence": "low|medium|high",
     "name_source": "explicit|inferred|null"
   }
@@ -47,7 +46,6 @@ Guidelines:
 - Focus on patterns and preferences, not just facts
 - For personal identity:
   - Look for explicit name introductions: "My name is...", "I'm...", "Call me..."
-  - Look for greeting patterns: "Hi", "Hello", "Hey", "Good morning", etc.
   - Set name_confidence based on clarity: "high" for explicit, "medium" for clear context, "low" for uncertain
   - Set name_source: "explicit" for direct statements, "inferred" for context clues
 - If no new insights, return empty arrays/objects
@@ -277,36 +275,6 @@ Generate a single sentence explaining why learning this name is important for fu
                         personal_info_updated = True
                     else:
                         print(f"   ⚠️  Skipping name update - current confidence higher")
-                
-                # Update greeting preference if detected
-                if new_personal_info.get("preferred_greeting") and not current_personal.get("preferred_greeting"):
-                    print(f"   👋 Detected greeting preference: '{new_personal_info['preferred_greeting']}'")
-                    
-                    # Update greeting preference
-                    updated_personal_info["preferred_greeting"] = new_personal_info["preferred_greeting"]
-                    
-                    # Add greeting learning thinking message
-                    greeting_reasoning_prompt = f"""
-You have learned a user's preferred greeting style. Generate a brief, natural reasoning for this learning moment.
-
-Greeting preference: {new_personal_info['preferred_greeting']}
-
-Generate a single sentence explaining why learning this greeting preference will improve future conversations.
-"""
-                    
-                    greeting_reasoning_response = llm.chat([
-                        {"role": "system", "content": greeting_reasoning_prompt}
-                    ])
-                    greeting_reasoning = greeting_reasoning_response.choices[0].message.content
-                    
-                    greeting_msg = m(
-                        role="assistant",
-                        content=f"I noticed you prefer '{new_personal_info['preferred_greeting']}' as a greeting. I'll use that style in our conversations.",
-                        reasoning=greeting_reasoning,
-                        message_type=MessageType.THINKING
-                    )
-                    thinking_messages.append(greeting_msg)
-                    personal_info_updated = True
                 
                 # Update session-related fields if they're provided
                 if new_personal_info.get("last_session_date"):
