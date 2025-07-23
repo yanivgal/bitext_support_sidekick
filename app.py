@@ -113,17 +113,71 @@ def sidebar_session_controls():
 
 # --- Chat UI Logic ---
 def _format_duration(seconds: float) -> str:
-    seconds = int(seconds)
-    minutes, seconds = divmod(seconds, 60)
-    hours, minutes = divmod(minutes, 60)
-    parts = []
-    if hours:
-        parts.append(f"{hours} hour{'s' if hours != 1 else ''}")
-    if minutes:
-        parts.append(f"{minutes} minute{'s' if minutes != 1 else ''}")
-    if seconds or not parts:
-        parts.append(f"{seconds} second{'s' if seconds != 1 else ''}")
-    return " and ".join(parts)
+    """Format duration in a human-readable way."""
+    if seconds < 60:
+        return f"{seconds:.1f} seconds"
+    else:
+        minutes = int(seconds // 60)
+        remaining_seconds = seconds % 60
+        return f"{minutes}m {remaining_seconds:.1f}s"
+
+def get_thinking_emoji(content: str, reasoning: str) -> str:
+    """Determine the appropriate emoji based on message content and reasoning."""
+    text = f"{content} {reasoning}".lower()
+    
+    emoji_map = {
+        # Error handling (check first to avoid conflicts)
+        "had trouble analyzing": "⚠️",
+        "encountered an error": "⚠️",
+        
+        # Memory operations
+        "analyzing our conversation": "🧠",
+        "learn more about your preferences": "🧠",
+        "check what i remember": "🧠",
+        "retrieving your conversation": "🧠",
+        "updating my memory": "💾",
+        "updated my memory": "💾",
+        "found some interesting insights": "🎯",
+        "learned that your name": "👋",
+        "noticed you prefer": "👋",
+        
+        # Tool operations
+        "use the tool": "🔧",
+        "gather the specific information": "🔧",
+        "analyze the data": "🔧",
+        "discover patterns": "🔧",
+        
+        # Analysis and understanding
+        "understand what you": "🔍",
+        "figure out the best way": "🔍",
+        "organize this information": "📋",
+        "organize this into": "📋",
+        "have the information i need": "📋"
+    }
+    
+    # Check for exact matches first (more specific)
+    for phrase, emoji in emoji_map.items():
+        if phrase in text:
+            return emoji
+    
+    # Fallback to keyword matching for reactive thinking
+    keyword_map = {
+        "memory": "🧠",
+        "learn": "🧠",
+        "remember": "🧠",
+        "tool": "🔧",
+        "analyze": "🔍",
+        "understand": "🔍",
+        "organize": "📋",
+        "error": "⚠️",
+        "trouble": "⚠️"
+    }
+    
+    for keyword, emoji in keyword_map.items():
+        if keyword in text:
+            return emoji
+    
+    return "🤔"  # Default for general thinking
 
 def display_thinking_messages(messages, duration: float | None = None):
     if not messages:
@@ -142,7 +196,8 @@ def display_thinking_messages(messages, duration: float | None = None):
         current_tool_call_idx = 0
         for i, msg in enumerate(messages):
             if msg["message_type"] == MessageType.THINKING:
-                st.write("🤔  " + msg["content"])
+                emoji = get_thinking_emoji(msg["content"], msg.get("reasoning", ""))
+                st.write(f"{emoji}  {msg['content']}")
                 if "reasoning" in msg and msg["reasoning"]:
                     st.markdown(f"> **Reasoning:** {msg['reasoning']}")
             elif msg["message_type"] == MessageType.TOOL_CALL:
