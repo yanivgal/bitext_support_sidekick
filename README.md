@@ -35,7 +35,101 @@ This project implements an intelligent agent that can answer questions about cus
 
 ## Architecture & Structure
 
-The application follows a modular, domain-driven architecture:
+The application follows a **Domain-Driven Design (DDD)** architecture with **LangGraph workflow orchestration**. The system is built around a **state-driven workflow** that processes user queries through specialized nodes.
+
+### **High-Level Architecture**
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Streamlit UI  │    │   LangGraph     │    │   Data Tools    │
+│   (app.py)      │◄──►│   Workflow      │◄──►│   (tools/)      │
+│                 │    │   (brain/)      │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Session       │    │   State         │    │   User Memory   │
+│   Management    │    │   Management    │    │   (JSON File)   │
+│   (Sidebar)     │    │   (MemorySaver) │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+### **LangGraph Workflow Architecture**
+
+The core of the system is a **state-driven workflow** that routes queries through specialized processing nodes:
+
+```
+                    ┌─────────────────┐
+                    │   User Query    │
+                    │   (Entry Point) │
+                    └─────────┬───────┘
+                              │
+                              ▼
+                    ┌─────────────────┐
+                    │   Classifier    │
+                    │   (brain/       │
+                    │   classifier.py)│
+                    └─────────┬───────┘
+                              │
+                    ┌─────────┴───────┐
+                    │                 │
+                    ▼                 ▼
+            ┌─────────────┐   ┌─────────────┐
+            │ Structured  │   │Unstructured │
+            │   Agent     │   │   Agent     │
+            │             │   │             │
+            └─────┬───────┘   └─────┬───────┘
+                  │                 │
+                  ▼                 ▼
+            ┌─────────────┐   ┌─────────────┐
+            │   Tools     │   │   LLM       │
+            │ Selection   │   │ Analysis    │
+            │ & Execution │   │ & Summary   │
+            └─────┬───────┘   └─────┬───────┘
+                  │                 │
+                  └─────────┬───────┘
+                            │
+                            ▼
+                    ┌─────────────────┐
+                    │   Summary       │
+                    │   (Memory       │
+                    │   Update)       │
+                    └─────────┬───────┘
+                              │
+                              ▼
+                    ┌─────────────────┐
+                    │   Final         │
+                    │   Response      │
+                    └─────────────────┘
+```
+
+### **Specialized Routing Paths**
+
+The classifier routes queries to different specialized nodes:
+
+- **`structured`** → Structured Agent → Tools → Summary → Response
+- **`unstructured`** → Unstructured Agent → LLM Analysis → Summary → Response  
+- **`memory_query`** → Memory Response → Response
+- **`recommend_query`** → Recommender → Response
+- **`out_of_scope`** → Out-of-Scope Handler → Summary → Response
+
+### **State Management Architecture**
+
+The system uses **LangGraph's MemorySaver** for persistent state management:
+
+```python
+class AgentState(TypedDict):
+    messages: List[Dict[str, Any]]     # Conversation history
+    user_message: str                  # Current user input  
+    query_type: str | None             # Classified query type
+    session_id: str | None             # Session identifier
+    user_memory: Dict[str, Any]        # User preferences
+    current_step: str                  # Current processing step
+    final_answer: str | None           # Final response
+```
+
+### **Component Architecture**
 
 ```
 bitext_support_sidekick/
@@ -73,6 +167,29 @@ bitext_support_sidekick/
 ├── requirements.txt
 ├── README.md
 ```
+
+### **Key Architectural Principles**
+
+- **Domain-Driven Design**: Code organized by business domain, not technology
+- **State-Driven Workflow**: LangGraph manages state transitions and persistence
+- **Modular Nodes**: Each processing step is a separate, testable node
+- **Tool-Based Architecture**: Data analysis capabilities as pluggable tools
+- **Session Persistence**: Multi-conversation support with state restoration
+- **Memory Management**: User memory stored in human-readable JSON format
+
+## System Diagrams
+
+Below are four diagrams that explain how the LangGraph-powered data analyst agent works:
+
+- **System Flowchart** – shows all main components and how they connect in the LangGraph workflow architecture.
+- **Sequence Diagram** – illustrates the step-by-step process from user query to final response, including query classification and agent routing.
+- **Mind Map** – provides a hierarchical overview of all system features, capabilities, and components in a tree structure.
+- **User Journey** – demonstrates the complete user experience and what happens behind the scenes during a typical interaction.
+
+![](assets/system_flowchart.png)
+![](assets/sequence_diagram.png)
+![](assets/mindmap.png)
+![](assets/user_journey.png)
 
 ## Session Management & Memory
 
