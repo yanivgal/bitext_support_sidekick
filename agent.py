@@ -37,7 +37,7 @@ class Agent:
             
             # Create response in the expected format
             response = m(
-                role="assistant",
+                role="assistant", 
                 content=final_answer,
                 message_type=MessageType.USER_FACING
             )
@@ -49,12 +49,12 @@ class Agent:
         except Exception as e:
             print(f"Error in LangGraph execution: {e}")
             error_response = m(
-                role="assistant",
+            role="assistant",
                 content="I encountered an error while processing your request. Please try again.",
-                message_type=MessageType.USER_FACING
+            message_type=MessageType.USER_FACING
             )
             return error_response, []
-
+        
     def _initialize_state(
         self,
         user_message: str,

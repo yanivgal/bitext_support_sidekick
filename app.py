@@ -182,18 +182,18 @@ def display_message(message):
 def main():
     st.title("🤖 Bitext Support Sidekick")
     st.caption("Your friendly neighborhood data detective! I'll help you crack the case of customer conversations, decode intents, and make your support experience less 'support-ive' and more 'awesome-ive'! 🕵️‍♂️")
-
+    
     # --- Sidebar: Session Management ---
     sidebar_session_controls()
     current_session_id = get_current_session()
-
+    
     # Initialize the agent and chat_turns
     if 'agent' not in st.session_state:
         st.session_state.agent = Agent()
         st.session_state.chat_turns = []
     if 'chat_turns' not in st.session_state:
         st.session_state.chat_turns = []
-
+    
     # Chat input or suggested prompt
     prompt = st.chat_input("Ask a question about the dataset")
     if 'suggested_prompt' in st.session_state and st.session_state.suggested_prompt:
@@ -213,7 +213,7 @@ def main():
             "duration": None
         })
         new_question = True
-
+    
     # Display chat history as grouped turns
     for turn in st.session_state.chat_turns:
         display_message(turn["user"])
@@ -223,7 +223,7 @@ def main():
         )
         if turn["assistant"]:
             display_message(turn["assistant"])
-
+    
     # If a new question was just added, process the agent response and update the last turn
     if new_question:
         with st.spinner('The agent is deep in thoughts... and possibly snacking. Hang tight!'):
