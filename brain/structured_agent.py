@@ -111,6 +111,12 @@ def _think_next_step(messages: List[Dict[str, Any]]) -> ReactiveThinkingStep:
                 "role": msg["role"],
                 "content": msg["content"]
             })
+        elif msg.get("message_type") == MessageType.TOOL_RESULT:
+            # Include tool results so the thinking step knows what data was retrieved
+            thinking_messages.append({
+                "role": "tool",
+                "content": f"Tool result: {msg['content']}"
+            })
     
     # Get thinking step decision
     response = llm.chat(
@@ -291,6 +297,7 @@ def structured_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
         
         # Generate final response
         llm = _get_llm()
+        print(f"   📝 Calling LLM for final response...")
         final_resp = llm.chat(working_messages, response_format=FinalResponse)
         final_response = final_resp.choices[0].message.parsed
         
@@ -306,6 +313,12 @@ def structured_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
             message_type=MessageType.USER_FACING
         )
         
+        print(f"\n📤 CREATED RESPONSE MESSAGE:")
+        print(f"   Role: {response['role']}")
+        print(f"   Content: {response['content']}")
+        print(f"   Message Type: {response['message_type']}")
+        print(f"   Content Length: {len(response['content'])}")
+        
     except Exception as e:
         print(f"\n❌ ERROR in structured agent: {e}")
         print(f"{'='*60}")
@@ -317,6 +330,11 @@ def structured_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
         )
     
     # Always append to the existing message history
+    print(f"\n📤 RETURNING STATE:")
+    print(f"   Thinking messages count: {len(thinking_messages)}")
+    print(f"   Response content: {response['content'][:100]}...")
+    print(f"   Final answer: {response['content']}")
+    
     return {
         **state,
         "messages": state["messages"] + thinking_messages + [response],

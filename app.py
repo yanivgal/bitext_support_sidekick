@@ -234,7 +234,18 @@ def main():
             user_indices = [i for i, msg in enumerate(updated_history) if msg["role"] == "user"]
             last_user_idx = user_indices[-1] if user_indices else 0
             thinking_msgs = updated_history[last_user_idx+1:-1] if updated_history else []
-            assistant_msg = updated_history[-1] if updated_history else None
+            
+            # Find the last assistant message (not just the last message)
+            assistant_msg = None
+            for msg in reversed(updated_history):
+                if msg.get("message_type") == MessageType.USER_FACING and msg["role"] == "assistant":
+                    assistant_msg = msg
+                    break
+            
+            print(f"🔍 DEBUG: Found assistant message: {assistant_msg['content'] if assistant_msg else 'None'}")
+            print(f"🔍 DEBUG: Total messages in history: {len(updated_history)}")
+            print(f"🔍 DEBUG: Thinking messages count: {len(thinking_msgs)}")
+            
             st.session_state.chat_turns[-1]["thinking"] = thinking_msgs
             st.session_state.chat_turns[-1]["assistant"] = assistant_msg
             st.session_state.chat_turns[-1]["duration"] = duration
