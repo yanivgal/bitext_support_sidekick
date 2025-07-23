@@ -25,6 +25,15 @@ def load_user_memory() -> Dict[str, Any]:
         "query_types_preferred": {
             "structured": 0,
             "unstructured": 0
+        },
+        "personal_info": {
+            "name": None,
+            "preferred_greeting": None,
+            "name_confidence": "low",
+            "name_source": None,
+            "last_session_date": None,
+            "session_count": 0,
+            "first_session_date": None
         }
     }
     
@@ -67,6 +76,19 @@ def update_user_memory(updates: Dict[str, Any]) -> bool:
     """
     try:
         memory = load_user_memory()
+        
+        # Ensure personal_info exists (migration for existing users)
+        if "personal_info" not in memory:
+            memory["personal_info"] = {
+                "name": None,
+                "preferred_greeting": None,
+                "name_confidence": "low",
+                "name_source": None,
+                "last_session_date": None,
+                "session_count": 0,
+                "first_session_date": None
+            }
+            print(f"🔄 Migrated existing user memory to include personal_info")
         
         # Merge updates
         for key, value in updates.items():

@@ -12,7 +12,7 @@ def _get_llm():
     return _llm
 
 _summary_prompt = """
-You are a user memory analyzer. Your job is to analyze the current conversation turn and extract key information about the user's preferences, interests, and patterns.
+You are a user memory analyzer. Your job is to analyze the current conversation turn and extract key information about the user's preferences, interests, patterns, and personal identity.
 
 Analyze the user's query and the agent's response to identify:
 
@@ -20,6 +20,7 @@ Analyze the user's query and the agent's response to identify:
 2. **Query Patterns**: How the user typically asks questions
 3. **Preferences**: What kind of responses they prefer (detailed vs concise, structured vs analysis)
 4. **Topics Discussed**: What specific topics were covered in this turn
+5. **Personal Identity**: Name, greeting preferences, and personal information
 
 Return a JSON object with the following structure:
 {
@@ -30,7 +31,13 @@ Return a JSON object with the following structure:
     "detail_level": "low|medium|high"
   },
   "topics_discussed": ["topic1", "topic2"],
-  "favorite_categories": ["category1", "category2"]
+  "favorite_categories": ["category1", "category2"],
+  "personal_info": {
+    "name": "string or null",
+    "preferred_greeting": "string or null",
+    "name_confidence": "low|medium|high",
+    "name_source": "explicit|inferred|null"
+  }
 }
 
 Guidelines:
@@ -38,6 +45,11 @@ Guidelines:
 - Be specific but concise
 - Don't repeat information already in memory unless it's reinforced
 - Focus on patterns and preferences, not just facts
+- For personal identity:
+  - Look for explicit name introductions: "My name is...", "I'm...", "Call me..."
+  - Look for greeting patterns: "Hi", "Hello", "Hey", "Good morning", etc.
+  - Set name_confidence based on clarity: "high" for explicit, "medium" for clear context, "low" for uncertain
+  - Set name_source: "explicit" for direct statements, "inferred" for context clues
 - If no new insights, return empty arrays/objects
 """
 
@@ -115,6 +127,34 @@ Analyze this conversation turn and extract new insights about the user.
                 current_prefs = current_user_memory.get("query_types_preferred", {})
                 current_prefs[query_type] = current_prefs.get(query_type, 0) + 1
                 insights["query_types_preferred"] = current_prefs
+            
+            # Handle personal info updates with confidence logic
+            if "personal_info" in insights and insights["personal_info"]:
+                personal_info = insights["personal_info"]
+                current_personal = current_user_memory.get("personal_info", {})
+                
+                # Only update name if we have higher confidence or explicit source
+                if personal_info.get("name") and personal_info.get("name") != current_personal.get("name"):
+                    new_confidence = personal_info.get("name_confidence", "low")
+                    current_confidence = current_personal.get("name_confidence", "low")
+                    
+                    # Confidence hierarchy: high > medium > low
+                    confidence_levels = {"low": 1, "medium": 2, "high": 3}
+                    
+                    if (confidence_levels.get(new_confidence, 0) > confidence_levels.get(current_confidence, 0) or 
+                        personal_info.get("name_source") == "explicit"):
+                        print(f"   🎯 Updating name to '{personal_info['name']}' (confidence: {new_confidence})")
+                    else:
+                        print(f"   ⚠️  Skipping name update - current confidence higher")
+                        personal_info["name"] = current_personal.get("name")
+                        personal_info["name_confidence"] = current_personal.get("name_confidence")
+                        personal_info["name_source"] = current_personal.get("name_source")
+                
+                # Update greeting preference if detected
+                if personal_info.get("preferred_greeting") and not current_personal.get("preferred_greeting"):
+                    print(f"   👋 Detected greeting preference: '{personal_info['preferred_greeting']}'")
+                
+                insights["personal_info"] = personal_info
             
             # Save to file
             from brain.memory_manager import update_user_memory, load_user_memory

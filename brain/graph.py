@@ -135,12 +135,14 @@ Please create a natural, conversational response that tells the user what you re
 
 Guidelines:
 - Be friendly and conversational, not robotic
+- If you know their name, use it naturally in the response
 - Structure the information clearly with sections if there's a lot of data
 - Use bullet points or formatting to make it easy to read
 - Focus on the most interesting/relevant information
 - If there's not much data, be encouraging about learning more
 - Keep it concise but comprehensive
 - Use a warm, helpful tone
+- For personal info, be respectful and only share what they've explicitly shared
 
 The user asked: "{user_message}"
 """
